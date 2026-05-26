@@ -1,0 +1,128 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.badges (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  slug character varying NOT NULL UNIQUE,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT badges_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.competitions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  sport_id uuid NOT NULL,
+  name character varying NOT NULL,
+  slug character varying NOT NULL,
+  country character varying,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT competitions_pkey PRIMARY KEY (id),
+  CONSTRAINT competitions_sport_id_fkey FOREIGN KEY (sport_id) REFERENCES public.sports(id)
+);
+CREATE TABLE public.events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  sport_id uuid NOT NULL,
+  competition_id uuid,
+  home_team character varying,
+  away_team character varying,
+  event_name character varying,
+  starts_at timestamp with time zone NOT NULL,
+  status USER-DEFINED NOT NULL DEFAULT 'scheduled'::event_status,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT events_pkey PRIMARY KEY (id),
+  CONSTRAINT events_sport_id_fkey FOREIGN KEY (sport_id) REFERENCES public.sports(id),
+  CONSTRAINT events_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES public.competitions(id)
+);
+CREATE TABLE public.follows (
+  follower_id uuid NOT NULL,
+  following_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT follows_pkey PRIMARY KEY (follower_id, following_id),
+  CONSTRAINT follows_follower_id_fkey FOREIGN KEY (follower_id) REFERENCES public.profiles(id),
+  CONSTRAINT follows_following_id_fkey FOREIGN KEY (following_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.prediction_comments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  prediction_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  body text NOT NULL CHECK (char_length(TRIM(BOTH FROM body)) > 0),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT prediction_comments_pkey PRIMARY KEY (id),
+  CONSTRAINT prediction_comments_prediction_id_fkey FOREIGN KEY (prediction_id) REFERENCES public.predictions(id),
+  CONSTRAINT prediction_comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.prediction_likes (
+  prediction_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT prediction_likes_pkey PRIMARY KEY (prediction_id, user_id),
+  CONSTRAINT prediction_likes_prediction_id_fkey FOREIGN KEY (prediction_id) REFERENCES public.predictions(id),
+  CONSTRAINT prediction_likes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.predictions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  sport_id uuid NOT NULL,
+  competition_id uuid,
+  event_id uuid,
+  title character varying NOT NULL,
+  pick character varying NOT NULL,
+  odds numeric NOT NULL CHECK (odds >= 1.01),
+  stake integer NOT NULL DEFAULT 1 CHECK (stake >= 1 AND stake <= 10),
+  explanation text,
+  status USER-DEFINED NOT NULL DEFAULT 'pending'::prediction_status,
+  likes_count integer NOT NULL DEFAULT 0,
+  comments_count integer NOT NULL DEFAULT 0,
+  profit numeric DEFAULT 
+CASE
+    WHEN (status = 'won'::prediction_status) THEN round(((odds - (1)::numeric) * (stake)::numeric), 2)
+    WHEN (status = 'lost'::prediction_status) THEN ((- stake))::numeric
+    ELSE (0)::numeric
+END,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT predictions_pkey PRIMARY KEY (id),
+  CONSTRAINT predictions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT predictions_sport_id_fkey FOREIGN KEY (sport_id) REFERENCES public.sports(id),
+  CONSTRAINT predictions_competition_id_fkey FOREIGN KEY (competition_id) REFERENCES public.competitions(id),
+  CONSTRAINT predictions_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  username character varying NOT NULL UNIQUE CHECK (char_length(username::text) >= 3),
+  display_name character varying,
+  avatar_url text,
+  bio text,
+  total_likes integer NOT NULL DEFAULT 0,
+  followers_count integer NOT NULL DEFAULT 0,
+  following_count integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.saved_predictions (
+  prediction_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT saved_predictions_pkey PRIMARY KEY (prediction_id, user_id),
+  CONSTRAINT saved_predictions_prediction_id_fkey FOREIGN KEY (prediction_id) REFERENCES public.predictions(id),
+  CONSTRAINT saved_predictions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.sports (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name character varying NOT NULL,
+  slug character varying NOT NULL UNIQUE,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT sports_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.user_badges (
+  user_id uuid NOT NULL,
+  badge_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT user_badges_pkey PRIMARY KEY (user_id, badge_id),
+  CONSTRAINT user_badges_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
+  CONSTRAINT user_badges_badge_id_fkey FOREIGN KEY (badge_id) REFERENCES public.badges(id)
+);

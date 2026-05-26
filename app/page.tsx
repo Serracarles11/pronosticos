@@ -1,0 +1,276 @@
+import Link from "next/link";
+import { PulsoShell } from "./components/pulso-shell";
+import { createClient } from "@/lib/supabase/server";
+
+const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
+function avatarColor(username: string) {
+  let h = 0;
+  for (let i = 0; i < username.length; i++) h = username.charCodeAt(i) + ((h << 5) - h);
+  return COLORS[Math.abs(h) % COLORS.length];
+}
+
+export default async function HomePage() {
+  const supabase = await createClient();
+
+  // Featured predictions
+  const { data: featured } = await supabase
+    .from("pronosticos")
+    .select("id, evento, mercado, cuota, confianza, estado, profiles(username)")
+    .eq("visibilidad", "publico")
+    .order("created_at", { ascending: false })
+    .limit(3);
+
+  // Top tipsters
+  const { data: allProns } = await supabase
+    .from("pronosticos")
+    .select("user_id, estado, profiles(username, display_name)")
+    .eq("visibilidad", "publico");
+
+  type TipsterMap = { username: string; displayName: string; total: number; acertadas: number };
+  const byUser = new Map<string, TipsterMap>();
+  for (const p of allProns ?? []) {
+    const prof = p.profiles as unknown as { username: string; display_name: string | null } | null;
+    if (!prof) continue;
+    const ex = byUser.get(p.user_id) ?? {
+      username: prof.username,
+      displayName: prof.display_name ?? prof.username,
+      total: 0,
+      acertadas: 0,
+    };
+    ex.total++;
+    if (p.estado === "acertada") ex.acertadas++;
+    byUser.set(p.user_id, ex);
+  }
+  const topTipsters = Array.from(byUser.values())
+    .map((u) => ({ ...u, acierto: u.total > 0 ? Math.round((u.acertadas / u.total) * 100) : 0 }))
+    .sort((a, b) => b.acertadas - a.acertadas)
+    .slice(0, 3);
+
+  return (
+    <PulsoShell active="landing">
+      <section className="hero">
+        <div className="container hero__grid">
+          <div className="hero__copy">
+            <span className="pill pill--blue">
+              <span className="pill__dot" />
+              Comunidad de tipsters
+            </span>
+            <h1>
+              Comparte tus pronosticos.
+              <br />
+              <span className="hero__accent">Descubre las mejores</span>{" "}
+              apuestas de la comunidad.
+            </h1>
+            <p>
+              Los usuarios votan, comentan y siguen a los tipsters que aciertan.
+              Sin dinero real: solo reputacion, estadisticas y debate transparente.
+            </p>
+            <div className="hero__cta">
+              <Link className="btn btn--primary btn--lg" href="/feed">
+                Explorar pronosticos →
+              </Link>
+              <Link className="btn btn--ghost btn--lg" href="/auth?tab=registro">
+                Crear cuenta gratis
+              </Link>
+            </div>
+          </div>
+
+          <div className="hero__preview" aria-hidden="true">
+            <article className="card hero__card-back">
+              <div className="pred__author">
+                <span className="avatar avatar--sm avatar--sky">AP</span>
+                <strong>AndreaPerez</strong>
+              </div>
+              <div className="hero__placeholder" />
+            </article>
+            <article className="card card--featured hero__card-front pred">
+              <header className="pred__head">
+                <div className="pred__author">
+                  <span className="avatar avatar--md avatar--navy">LR</span>
+                  <div className="pred__author-meta">
+                    <span className="pred__user">
+                      LauraRivas <span className="badge badge--gold">Top</span>
+                    </span>
+                    <span className="pred__sub">Hace 2 h · LaLiga</span>
+                  </div>
+                </div>
+                <span className="pill pill--ok">
+                  <span className="pill__dot" />
+                  Acertada
+                </span>
+              </header>
+              <h3 className="pred__title">Real Sociedad - Villarreal</h3>
+              <div className="pred__strip">
+                <div className="pred__cell">
+                  <div className="pred__cell-label">Pronostico</div>
+                  <div className="pred__cell-value">BTTS · Si</div>
+                </div>
+                <div className="pred__cell pred__cell--accent">
+                  <div className="pred__cell-label">Cuota</div>
+                  <div className="pred__cell-value mono">1.82</div>
+                </div>
+                <div className="pred__cell">
+                  <div className="pred__cell-label">Confianza</div>
+                  <div className="pred__confidence">
+                    <span className="is-on" /><span className="is-on" /><span className="is-on" /><span className="is-on" /><span />
+                  </div>
+                </div>
+              </div>
+              <footer className="pred__foot">
+                <div className="pred__actions">
+                  <button>♥ 248</button>
+                  <button>💬 32</button>
+                </div>
+                <span className="mono muted">+1.82u</span>
+              </footer>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container">
+          <div className="section__head">
+            <h2>Destacadas hoy</h2>
+            <Link href="/feed" className="section__link">Ver feed completo →</Link>
+          </div>
+          <div className="grid grid--3">
+            {(featured ?? []).length > 0
+              ? (featured ?? []).map((p, i) => {
+                  const username =
+                    (p.profiles as unknown as { username: string } | null)?.username ?? "usuario";
+                  const color = avatarColor(username);
+                  const initials = username.slice(0, 2).toUpperCase();
+                  return (
+                    <article key={p.id} className={`card pred ${i === 1 ? "card--featured" : ""}`}>
+                      <header className="pred__head">
+                        <div className="pred__author">
+                          <Link href={`/perfil?user=${username}`} className={`avatar avatar--sm avatar--${color}`}>
+                            {initials}
+                          </Link>
+                          <div className="pred__author-meta">
+                            <span className="pred__user">{username}</span>
+                          </div>
+                        </div>
+                        <span
+                          className={
+                            p.estado === "acertada"
+                              ? "pill pill--ok"
+                              : p.estado === "fallada"
+                              ? "pill pill--bad"
+                              : "pill pill--warn"
+                          }
+                        >
+                          <span className="pill__dot" />
+                          {p.estado === "acertada" ? "Acertada" : p.estado === "fallada" ? "Fallada" : "Pendiente"}
+                        </span>
+                      </header>
+                      <Link href={`/detalle?id=${p.id}`}>
+                        <h3 className="pred__title">{p.evento} · {p.mercado}</h3>
+                      </Link>
+                      <div className="cluster">
+                        <span className="badge">
+                          Cuota <span className="mono">{Number(p.cuota).toFixed(2)}</span>
+                        </span>
+                        <span className="badge">Confianza {p.confianza}/5</span>
+                      </div>
+                    </article>
+                  );
+                })
+              : /* Fallback estático si aún no hay datos */
+                [
+                  ["JM", "avatar--blue", "JuanMartin_22", "NBA · Playoffs", "Celtics - Knicks · Mas 219.5", "1.95", "3", "ok"],
+                  ["LR", "avatar--navy", "LauraRivas", "LaLiga · J33", "Real Sociedad - Villarreal · BTTS Si", "1.82", "4", "warn"],
+                  ["DC", "avatar--steel", "DiegoCampos", "Tenis · Roland Garros", "Alcaraz - Zverev · Carlos gana", "1.74", "5", "ok"],
+                ].map(([initials, tone, name, sub, title, cuota, conf, estado]) => (
+                  <article key={name} className={`card pred ${name === "LauraRivas" ? "card--featured" : ""}`}>
+                    <header className="pred__head">
+                      <div className="pred__author">
+                        <span className={`avatar avatar--sm ${tone}`}>{initials}</span>
+                        <div className="pred__author-meta">
+                          <span className="pred__user">{name}</span>
+                          <span className="pred__sub">{sub}</span>
+                        </div>
+                      </div>
+                      <span className={`pill pill--${estado}`}>
+                        <span className="pill__dot" />
+                        {estado === "ok" ? "Acertada" : "Pendiente"}
+                      </span>
+                    </header>
+                    <h3 className="pred__title">{title}</h3>
+                    <div className="cluster">
+                      <span className="badge">Cuota <span className="mono">{cuota}</span></span>
+                      <span className="badge">Confianza {conf}/5</span>
+                    </div>
+                  </article>
+                ))}
+          </div>
+        </div>
+      </section>
+
+      {topTipsters.length > 0 && (
+        <section className="section section--surface">
+          <div className="container">
+            <div className="section__head">
+              <h2>Top tipsters</h2>
+              <Link href="/ranking" className="section__link">Ver ranking completo →</Link>
+            </div>
+            <div className="ranking-grid">
+              {topTipsters.map((u, i) => {
+                const color = avatarColor(u.username);
+                const initials = u.username.slice(0, 2).toUpperCase();
+                return (
+                  <article className="card rank-card" key={u.username}>
+                    <span className="rank-card__pos mono">{i + 1}</span>
+                    <Link href={`/perfil?user=${u.username}`} className={`avatar avatar--lg avatar--${color}`}>
+                      {initials}
+                    </Link>
+                    <div className="rank-card__body">
+                      <div className="rank-card__name">{u.username}</div>
+                      <div className="rank-card__sub">{u.total} pronosticos</div>
+                    </div>
+                    <div className="rank-card__stats">
+                      <div className="mono rank-card__profit">{u.acertadas} aciertos</div>
+                      <div className="mono muted rank-card__accuracy">{u.acierto}% acierto</div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="section" id="como-funciona">
+        <div className="container">
+          <div className="section__head">
+            <h2>Asi funciona Pulso</h2>
+            <span className="mono muted section__eyebrow">3 pasos</span>
+          </div>
+          <div className="grid grid--3">
+            <article className="step">
+              <span className="step__num mono">01</span>
+              <h3>Publica tu pronostico</h3>
+              <p>Elige deporte, partido y mercado. Anade tu cuota y explica por que crees que va a salir.</p>
+            </article>
+            <article className="step">
+              <span className="step__num mono">02</span>
+              <h3>La comunidad vota</h3>
+              <p>Otros tipsters debaten, comentan y likean tus pronosticos. Los argumentos solidos suben al top.</p>
+            </article>
+            <article className="step">
+              <span className="step__num mono">03</span>
+              <h3>Sube en el ranking</h3>
+              <p>Si aciertas, ganas reputacion, racha y badges. Sin saldo real: solo reconocimiento.</p>
+            </article>
+          </div>
+          <div style={{ textAlign: "center", marginTop: 32 }}>
+            <Link href="/auth?tab=registro" className="btn btn--primary btn--lg">
+              Unirme a Pulso →
+            </Link>
+          </div>
+        </div>
+      </section>
+    </PulsoShell>
+  );
+}
