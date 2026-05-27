@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { LikeButton } from "../components/like-button";
 import { CommentForm } from "../components/comment-form";
 import { SaveButton } from "../components/save-button";
+import { FollowButton } from "../components/follow-button";
+import { SettlementForm } from "../components/settlement-form";
+import { ProofImageModal } from "../components/proof-image-modal";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 
@@ -30,12 +33,17 @@ function EstadoPill({ estado }: { estado: string }) {
   return <span className="pill pill--warn"><span className="pill__dot" />Pendiente</span>;
 }
 
+function canSettlePronostico(fechaEvento: string | null, estado: string) {
+  if (!fechaEvento || estado !== "pendiente") return false;
+  return Date.now() >= new Date(fechaEvento).getTime() + 24 * 60 * 60 * 1000;
+}
+
 export default async function DetallePage({
   searchParams,
 }: {
-  searchParams: Promise<{ id?: string }>;
+  searchParams: Promise<{ id?: string; error?: string }>;
 }) {
-  const { id } = await searchParams;
+  const { id, error } = await searchParams;
 
   if (!id) notFound();
 
@@ -46,13 +54,13 @@ export default async function DetallePage({
 
   const { data: p } = await supabase
     .from("pronosticos")
-    .select("*, profiles(username, display_name, bio)")
+    .select("*, profiles!pronosticos_user_id_fkey(username, display_name, bio)")
     .eq("id", id)
     .single();
 
   if (!p) notFound();
 
-  const [{ count: likesCount }, likedRes, savedRes, comentariosRes, masDelAutorRes] =
+  const [{ count: likesCount }, likedRes, savedRes, followingRes, comentariosRes, masDelAutorRes] =
     await Promise.all([
       supabase
         .from("likes")
@@ -74,9 +82,17 @@ export default async function DetallePage({
             .eq("pronostico_id", id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
+      user
+        ? supabase
+            .from("seguimientos")
+            .select("follower_id")
+            .eq("follower_id", user.id)
+            .eq("following_id", p.user_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
       supabase
         .from("comentarios")
-        .select("*, profiles(username)")
+        .select("*, profiles!comentarios_user_id_fkey(username)")
         .eq("pronostico_id", id)
         .order("created_at", { ascending: true }),
       supabase
@@ -92,6 +108,7 @@ export default async function DetallePage({
   const totalLikes = likesCount ?? 0;
   const isLiked = !!likedRes?.data;
   const isSaved = !!savedRes?.data;
+  const isFollowing = !!followingRes?.data;
   const comentarios = comentariosRes?.data ?? [];
   const masDelAutor = masDelAutorRes?.data ?? [];
 
@@ -104,6 +121,8 @@ export default async function DetallePage({
     ? (user.email?.split("@")[0] ?? "yo").slice(0, 2).toUpperCase()
     : "??";
   const userColor = user ? avatarColor(user.email?.split("@")[0] ?? "yo") : "blue";
+  const isOwner = user?.id === p.user_id;
+  const canSettle = isOwner && canSettlePronostico(p.fecha_evento, p.estado);
 
   return (
     <PulsoShell active="feed">
@@ -127,6 +146,13 @@ export default async function DetallePage({
             </nav>
 
             <article className="card detail__pred pred">
+              {error && (
+                <div className="auth-error">
+                  <span className="auth-error__icon">!</span>
+                  {error}
+                </div>
+              )}
+
               <header className="pred__head">
                 <div className="pred__author">
                   <Link
@@ -191,6 +217,20 @@ export default async function DetallePage({
                       <p key={i}>{line}</p>
                     ))}
                 </div>
+              )}
+
+              {p.resultado_captura_url && (
+                <div className="settlement-proof">
+                  <div>
+                    <strong>Captura de cierre</strong>
+                    <span>Resultado marcado como {p.estado}.</span>
+                  </div>
+                  <ProofImageModal imageUrl={p.resultado_captura_url} />
+                </div>
+              )}
+
+              {canSettle && (
+                <SettlementForm pronosticoId={id} />
               )}
 
               <footer className="pred__foot detail__foot">
@@ -324,6 +364,12 @@ export default async function DetallePage({
                 </Link>
                 <strong>{autor?.display_name ?? autorUsername}</strong>
                 {autor?.bio && <p className="muted" style={{ fontSize: 13 }}>{autor.bio}</p>}
+                {user && user.id !== p.user_id && (
+                  <FollowButton
+                    targetUserId={p.user_id}
+                    initialFollowing={isFollowing}
+                  />
+                )}
               </div>
             </div>
           </aside>

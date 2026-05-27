@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PulsoShell } from "../components/pulso-shell";
 import { createClient } from "@/lib/supabase/server";
 import { LikeButton } from "../components/like-button";
+import { FollowButton } from "../components/follow-button";
 
 const DEPORTES = ["Futbol", "Tenis", "NBA", "eSports", "Combinadas", "Otros"];
 
@@ -38,28 +39,81 @@ function Confidence({ value }: { value: number }) {
   );
 }
 
+function cleanSearchTerm(value?: string) {
+  return (value ?? "").trim().replace(/\s+/g, " ").slice(0, 80);
+}
+
+function cleanPostgrestSearch(value: string) {
+  return value.replace(/[,%(){}]/g, " ").trim();
+}
+
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; deporte?: string }>;
+  searchParams: Promise<{ sort?: string; deporte?: string; q?: string; filtro?: string }>;
 }) {
-  const { sort, deporte } = await searchParams;
+  const { sort, deporte, q, filtro } = await searchParams;
+  const searchTerm = cleanSearchTerm(q);
+  const searchFilter = cleanPostgrestSearch(searchTerm);
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const activeFilter = filtro === "siguiendo" ? "siguiendo" : "todos";
+  let followedUserIds: string[] = [];
+  if (user) {
+    const { data: follows } = await supabase
+      .from("seguimientos")
+      .select("following_id")
+      .eq("follower_id", user.id);
+    followedUserIds = (follows ?? []).map((follow) => follow.following_id);
+  }
+
   let query = supabase
     .from("pronosticos")
     .select(`
       id, evento, mercado, cuota, confianza, explicacion,
       estado, competicion, deporte, created_at, user_id,
-      profiles ( username, display_name ),
+      profiles!pronosticos_user_id_fkey ( username, display_name ),
       likes ( count ),
       comentarios ( count )
     `)
     .eq("visibilidad", "publico");
+
+  if (activeFilter === "siguiendo") {
+    if (user && followedUserIds.length > 0) {
+      query = query.in("user_id", followedUserIds);
+    } else {
+      query = query.eq("user_id", "00000000-0000-0000-0000-000000000000");
+    }
+  }
+
+  if (searchFilter) {
+    const pattern = `%${searchFilter}%`;
+    const { data: matchedProfiles } = await supabase
+      .from("profiles")
+      .select("id")
+      .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
+      .limit(25);
+
+    const authorFilters =
+      matchedProfiles && matchedProfiles.length > 0
+        ? [`user_id.in.(${matchedProfiles.map((profile) => profile.id).join(",")})`]
+        : [];
+
+    query = query.or(
+      [
+        `evento.ilike.${pattern}`,
+        `mercado.ilike.${pattern}`,
+        `explicacion.ilike.${pattern}`,
+        `competicion.ilike.${pattern}`,
+        `deporte.ilike.${pattern}`,
+        ...authorFilters,
+      ].join(",")
+    );
+  }
 
   if (deporte && deporte !== "todos") {
     query = query.ilike("deporte", deporte);
@@ -96,6 +150,7 @@ export default async function FeedPage({
     }
   }
 
+  const followedUserIdSet = new Set(followedUserIds);
   const activeSort = sort ?? "recientes";
   const activeDeporte = deporte ?? "todos";
 
@@ -103,6 +158,8 @@ export default async function FeedPage({
     const params = new URLSearchParams();
     if (s !== "recientes") params.set("sort", s);
     if (activeDeporte !== "todos") params.set("deporte", activeDeporte);
+    if (searchTerm) params.set("q", searchTerm);
+    if (activeFilter !== "todos") params.set("filtro", activeFilter);
     const qs = params.toString();
     return `/feed${qs ? `?${qs}` : ""}`;
   }
@@ -111,12 +168,24 @@ export default async function FeedPage({
     const params = new URLSearchParams();
     if (activeSort !== "recientes") params.set("sort", activeSort);
     if (d !== "todos") params.set("deporte", d);
+    if (searchTerm) params.set("q", searchTerm);
+    if (activeFilter !== "todos") params.set("filtro", activeFilter);
+    const qs = params.toString();
+    return `/feed${qs ? `?${qs}` : ""}`;
+  }
+
+  function filtroLink(f: string) {
+    const params = new URLSearchParams();
+    if (activeSort !== "recientes") params.set("sort", activeSort);
+    if (activeDeporte !== "todos") params.set("deporte", activeDeporte);
+    if (searchTerm) params.set("q", searchTerm);
+    if (f !== "todos") params.set("filtro", f);
     const qs = params.toString();
     return `/feed${qs ? `?${qs}` : ""}`;
   }
 
   return (
-    <PulsoShell active="feed">
+    <PulsoShell active="feed" searchValue={searchTerm} hideFooter>
       <main className="feed">
         <div className="feed__inner">
           <aside className="feed__side feed__side--left hide-mobile">
@@ -143,6 +212,12 @@ export default async function FeedPage({
             <div className="side-section">
               <h4 className="side-section__title">Tu actividad</h4>
               <nav className="side-list">
+                <Link
+                  className={`side-link ${activeFilter === "siguiendo" ? "is-active" : ""}`}
+                  href={filtroLink("siguiendo")}
+                >
+                  Siguiendo
+                </Link>
                 <Link className="side-link" href="/perfil">Mi perfil</Link>
                 <Link className="side-link" href="/nuevo">Nuevo pronostico</Link>
               </nav>
@@ -154,12 +229,22 @@ export default async function FeedPage({
               <h1>Pronosticos</h1>
               <p>
                 {items.length} pronosticos
-                {activeDeporte !== "todos" ? ` de ${activeDeporte}` : " en la comunidad"}
+                {searchTerm
+                  ? ` encontrados para "${searchTerm}"`
+                  : activeDeporte !== "todos"
+                  ? ` de ${activeDeporte}`
+                  : " en la comunidad"}
               </p>
             </header>
 
             <div className="feed__filters">
               <div className="cluster">
+                <Link
+                  className={`chip ${activeFilter === "todos" ? "is-active" : ""}`}
+                  href={filtroLink("todos")}
+                >
+                  Todos
+                </Link>
                 <Link
                   className={`chip ${activeSort === "recientes" ? "is-active" : ""}`}
                   href={sortLink("recientes")}
@@ -172,16 +257,34 @@ export default async function FeedPage({
                 >
                   Mas votadas
                 </Link>
+                <Link
+                  className={`chip ${activeFilter === "siguiendo" ? "is-active" : ""}`}
+                  href={filtroLink("siguiendo")}
+                >
+                  Siguiendo
+                </Link>
+                {searchTerm && (
+                  <Link className="chip" href="/feed">
+                    Limpiar busqueda
+                  </Link>
+                )}
               </div>
               <Link href="/nuevo" className="btn btn--primary">
                 + Publicar
               </Link>
             </div>
 
+            <div className="feed__scroll">
             {items.length === 0 ? (
               <div className="card" style={{ padding: 32, textAlign: "center" }}>
                 <p style={{ marginBottom: 16 }}>
-                  {activeDeporte !== "todos"
+                  {searchTerm
+                    ? `No hay pronosticos publicos que coincidan con "${searchTerm}".`
+                    : activeFilter === "siguiendo" && !user
+                    ? "Inicia sesion para ver solo pronosticos de gente que sigues."
+                    : activeFilter === "siguiendo"
+                    ? "Aun no hay pronosticos publicos de gente que sigues."
+                    : activeDeporte !== "todos"
                     ? `No hay pronosticos de ${activeDeporte} todavia.`
                     : "Aun no hay pronosticos publicados."}
                 </p>
@@ -196,6 +299,8 @@ export default async function FeedPage({
                 const color = avatarColor(username);
                 const initials = username.slice(0, 2).toUpperCase();
                 const isLiked = userLikedIds.has(item.id as string);
+                const userId = item.user_id as string;
+                const canFollow = !!user && user.id !== userId;
 
                 return (
                   <article
@@ -220,7 +325,15 @@ export default async function FeedPage({
                           </span>
                         </div>
                       </div>
-                      <EstadoPill estado={item.estado as string} />
+                      <div className="pred__head-actions">
+                        <EstadoPill estado={item.estado as string} />
+                        {canFollow && (
+                          <FollowButton
+                            targetUserId={userId}
+                            initialFollowing={followedUserIdSet.has(userId)}
+                          />
+                        )}
+                      </div>
                     </header>
                     <div>
                       <h3 className="pred__title">
@@ -274,6 +387,7 @@ export default async function FeedPage({
                 );
               })
             )}
+            </div>
           </section>
 
           <aside className="feed__side feed__side--right hide-mobile">

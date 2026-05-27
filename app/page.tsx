@@ -15,7 +15,7 @@ export default async function HomePage() {
   // Featured predictions
   const { data: featured } = await supabase
     .from("pronosticos")
-    .select("id, evento, mercado, cuota, confianza, estado, profiles(username)")
+    .select("id, evento, mercado, cuota, confianza, estado, profiles!pronosticos_user_id_fkey(username)")
     .eq("visibilidad", "publico")
     .order("created_at", { ascending: false })
     .limit(3);
@@ -23,7 +23,7 @@ export default async function HomePage() {
   // Top tipsters
   const { data: allProns } = await supabase
     .from("pronosticos")
-    .select("user_id, estado, profiles(username, display_name)")
+    .select("user_id, estado, profiles!pronosticos_user_id_fkey(username, display_name)")
     .eq("visibilidad", "publico");
 
   type TipsterMap = { username: string; displayName: string; total: number; acertadas: number };

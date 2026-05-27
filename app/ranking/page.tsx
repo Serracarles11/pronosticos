@@ -50,7 +50,7 @@ export default async function RankingPage({
 
   let query = supabase
     .from("pronosticos")
-    .select("user_id, estado, deporte, profiles(id, username, display_name)")
+    .select("user_id, estado, deporte, profiles!pronosticos_user_id_fkey(id, username, display_name)")
     .eq("visibilidad", "publico");
 
   if (desde) query = query.gte("created_at", desde);
@@ -128,7 +128,7 @@ export default async function RankingPage({
   }
 
   return (
-    <PulsoShell active="ranking">
+    <PulsoShell active="ranking" hideFooter>
       <main className="container ranking">
         <header className="ranking__header">
           <div>

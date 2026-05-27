@@ -69,7 +69,7 @@ export default function AuthPage() {
         </ul>
 
         <div className="auth-panel__quote">
-          <p>"Llevo 3 meses en Pulso y mi tasa de acierto ha subido un 12% solo por tener que argumentar cada pronostico."</p>
+          <p>&quot;Llevo 3 meses en Pulso y mi tasa de acierto ha subido un 12% solo por tener que argumentar cada pronostico.&quot;</p>
           <div className="auth-panel__quote-author">
             <span className="avatar avatar--sm avatar--navy">LR</span>
             <div>

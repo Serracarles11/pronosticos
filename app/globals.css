@@ -489,6 +489,51 @@ button {
   align-items: center;
 }
 
+.pred__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.pred__head-actions .btn {
+  padding: 7px 11px;
+  font-size: 13px;
+}
+
+.follow-button {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+
+.follow-button:hover,
+.follow-button.is-active {
+  border-color: var(--blue-300);
+  background: var(--blue-50);
+}
+
+.follow-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.follow-button img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: block;
+}
+
 .pred__author,
 .comment,
 .comment__head,
@@ -911,6 +956,11 @@ button {
   margin: 12px 0 6px;
 }
 
+.feed {
+  height: calc(100vh - var(--header-h));
+  overflow: hidden;
+}
+
 .feed__inner {
   max-width: var(--container);
   margin: 0 auto;
@@ -918,13 +968,34 @@ button {
   grid-template-columns: 220px 1fr 300px;
   gap: 32px;
   padding: 32px 24px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .feed__main {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow: hidden;
+}
+
+.feed__side {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.feed__scroll {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 6px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .feed__header h1,
@@ -1017,6 +1088,108 @@ button {
 .detail__actions {
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.settlement-form,
+.settlement-proof {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px;
+  background: var(--surface);
+}
+
+.settlement-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settlement-form h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.settlement-form p,
+.settlement-proof span {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.settlement-form__actions,
+.settlement-proof {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settlement-proof {
+  justify-content: space-between;
+}
+
+.settlement-proof > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.proof-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(11, 31, 58, 0.72);
+}
+
+.proof-modal__panel {
+  width: min(960px, 100%);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(11, 31, 58, 0.28);
+}
+
+.proof-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.proof-modal__close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: #fff;
+  color: var(--text-2);
+  font-weight: 800;
+}
+
+.proof-modal__image-wrap {
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 112px);
+  overflow: auto;
+  background: var(--surface);
+  padding: 16px;
+}
+
+.proof-modal__image-wrap img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  border-radius: var(--r-md);
 }
 
 .comments {
@@ -1298,6 +1471,152 @@ button {
   margin-top: 20px;
   padding: 18px;
   border-radius: var(--r-lg);
+}
+
+.account {
+  padding-bottom: 80px;
+}
+
+.account__hero {
+  background: linear-gradient(180deg, var(--blue-50), #fafbfd);
+  border-bottom: 1px solid var(--border);
+  padding: 36px 0;
+}
+
+.account__hero-inner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.account__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.account__identity h1 {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+
+.account__identity p {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.account__identity span {
+  color: var(--text-3);
+}
+
+.account__hero-actions,
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.account__body {
+  padding-top: 28px;
+}
+
+.account-alert {
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.account-alert--ok {
+  background: var(--ok-bg);
+  color: var(--ok-fg);
+}
+
+.account-alert--error {
+  background: var(--bad-bg);
+  color: var(--bad-fg);
+}
+
+.account__stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.account__grid {
+  display: grid;
+  grid-template-columns: 1.25fr 0.9fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.account__side,
+.account-form,
+.account-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.account__side {
+  gap: 16px;
+}
+
+.account-panel__head {
+  margin-bottom: 18px;
+}
+
+.account-panel__head h2 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+.account-panel__head p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.account-form {
+  gap: 16px;
+}
+
+.account-details {
+  margin: 0;
+  gap: 12px;
+}
+
+.account-details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.account-details div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.account-details dt {
+  color: var(--text-3);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.account-details dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.account__logout {
+  width: 100%;
 }
 
 .bar {
@@ -1707,6 +2026,7 @@ button {
   .detail__inner,
   .publish__inner,
   .profile__grid,
+  .account__grid,
   .podium {
     grid-template-columns: 1fr;
   }
@@ -1725,6 +2045,7 @@ button {
   .grid--3,
   .ranking-grid,
   .profile__stats,
+  .account__stats,
   .publish__grid-2,
   .publish__grid-2-1 {
     grid-template-columns: 1fr;
@@ -1756,6 +2077,8 @@ button {
   .footer__inner,
   .header__inner,
   .hero__metrics,
+  .account__hero-inner,
+  .account__hero-actions,
   .publish__actions,
   .profile__head,
   .profile__head-actions {

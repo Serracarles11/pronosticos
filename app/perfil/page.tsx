@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PulsoShell } from "../components/pulso-shell";
 import { createClient } from "@/lib/supabase/server";
+import { FollowButton } from "../components/follow-button";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 function avatarColor(username: string) {
@@ -16,6 +17,11 @@ function timeAgo(dateStr: string) {
   if (h < 1) return "Hace unos minutos";
   if (h < 24) return `Hace ${h} h`;
   return `Hace ${Math.floor(h / 24)} dias`;
+}
+
+function canSettlePronostico(fechaEvento: string | null, estado: string) {
+  if (!fechaEvento || estado !== "pendiente") return false;
+  return Date.now() >= new Date(fechaEvento).getTime() + 24 * 60 * 60 * 1000;
 }
 
 export default async function PerfilPage({
@@ -72,7 +78,7 @@ export default async function PerfilPage({
 
   const { data: pronosticos } = await supabase
     .from("pronosticos")
-    .select("id, evento, mercado, cuota, estado, competicion, created_at, visibilidad")
+    .select("id, evento, mercado, cuota, estado, competicion, created_at, visibilidad, fecha_evento")
     .eq("user_id", profileData.id)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -100,6 +106,17 @@ export default async function PerfilPage({
   const displayName = profileData.display_name ?? username;
   const color = avatarColor(username);
   const initials = username.slice(0, 2).toUpperCase();
+  let isFollowing = false;
+
+  if (authUser && !isOwnProfile) {
+    const { data } = await supabase
+      .from("seguimientos")
+      .select("follower_id")
+      .eq("follower_id", authUser.id)
+      .eq("following_id", profileData.id)
+      .maybeSingle();
+    isFollowing = !!data;
+  }
 
   function tabLink(t: string) {
     const params = new URLSearchParams();
@@ -121,6 +138,12 @@ export default async function PerfilPage({
                   <h1>{displayName}</h1>
                   {acertadas >= 10 && (
                     <span className="badge badge--gold">Tipster activo</span>
+                  )}
+                  {authUser && !isOwnProfile && (
+                    <FollowButton
+                      targetUserId={profileData.id}
+                      initialFollowing={isFollowing}
+                    />
                   )}
                 </div>
                 <div className="profile__handle">
@@ -215,9 +238,17 @@ export default async function PerfilPage({
                             {p.visibilidad === "borrador" ? "Borrador" : "Seguidores"}
                           </span>
                         )}
+                        {isOwnProfile && canSettlePronostico(p.fecha_evento, p.estado) && (
+                          <span className="badge badge--purple" style={{ marginLeft: 6 }}>
+                            Pendiente de cierre
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="profile__row-stats">
+                      {isOwnProfile && canSettlePronostico(p.fecha_evento, p.estado) && (
+                        <span className="btn btn--soft">Cerrar</span>
+                      )}
                       <span className="mono profile__cuota">
                         {Number(p.cuota).toFixed(2)}
                       </span>

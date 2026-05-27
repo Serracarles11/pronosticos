@@ -2,11 +2,13 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { HeaderAuth } from "./header-auth";
 
-type NavKey = "feed" | "ranking" | "perfil" | "landing";
+type NavKey = "feed" | "ranking" | "perfil" | "cuenta" | "landing";
 
 type PulsoShellProps = {
   active?: NavKey;
   headerAction?: ReactNode;
+  searchValue?: string;
+  hideFooter?: boolean;
   children: ReactNode;
 };
 
@@ -29,6 +31,8 @@ function NavLink({
 export function PulsoShell({
   active = "landing",
   headerAction,
+  searchValue = "",
+  hideFooter = false,
   children,
 }: PulsoShellProps) {
   return (
@@ -41,12 +45,14 @@ export function PulsoShell({
               Pulso<span className="logo__dot">.</span>
             </span>
           </Link>
-          <div className="search">
+          <form className="search" action="/feed">
             <input
               type="search"
+              name="q"
               placeholder="Busca pronosticos, partidos o tipsters..."
+              defaultValue={searchValue}
             />
-          </div>
+          </form>
           <nav className="nav">
             <NavLink href="/feed" active={active === "feed"}>
               Pronosticos
@@ -54,8 +60,8 @@ export function PulsoShell({
             <NavLink href="/ranking" active={active === "ranking"}>
               Ranking
             </NavLink>
-            <NavLink href="/perfil" active={active === "perfil"}>
-              Tipsters
+            <NavLink href="/cuenta" active={active === "cuenta"}>
+              Cuenta
             </NavLink>
             {active === "landing" ? <a href="#como-funciona">Como funciona</a> : null}
           </nav>
@@ -65,7 +71,7 @@ export function PulsoShell({
         </div>
       </header>
       {children}
-      <footer className="footer">
+      {!hideFooter && <footer className="footer">
         <div className="footer__inner">
           <Link href="/" className="logo">
             <span className="logo__glyph" />
@@ -83,7 +89,7 @@ export function PulsoShell({
             PULSO · 2026 · COMUNIDAD SIN DINERO REAL
           </span>
         </div>
-      </footer>
+      </footer>}
     </>
   );
 }

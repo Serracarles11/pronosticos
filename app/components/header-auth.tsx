@@ -69,7 +69,7 @@ export function HeaderAuth() {
 
   return (
     <>
-      <Link href="/perfil" className={`avatar avatar--sm avatar--${color}`} title={name}>
+      <Link href="/cuenta" className={`avatar avatar--sm avatar--${color}`} title={name}>
         {initials(name)}
       </Link>
       <Link className="btn btn--primary" href="/nuevo">
