@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeAuthRedirect } from "@/lib/auth-redirect";
@@ -50,6 +51,42 @@ export async function signup(formData: FormData) {
   }
 
   redirect(next);
+}
+
+function getSiteOrigin(headersList: Headers) {
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configuredSiteUrl?.startsWith("https://") || configuredSiteUrl?.startsWith("http://")) {
+    return configuredSiteUrl.replace(/\/+$/, "");
+  }
+
+  const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
+  const proto = headersList.get("x-forwarded-proto") ?? "http";
+  return host ? `${proto}://${host}` : "http://localhost:3000";
+}
+
+export async function loginWithGoogle(formData: FormData) {
+  const supabase = await createClient();
+  const next = normalizeAuthRedirect(String(formData.get("next") ?? ""));
+  const origin = getSiteOrigin(await headers());
+  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo,
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent",
+      },
+    },
+  });
+
+  if (error || !data.url) {
+    const message = error?.message ?? "No se ha podido iniciar sesion con Google.";
+    redirect(`/auth?next=${encodeURIComponent(next)}&error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(data.url);
 }
 
 export async function logout() {

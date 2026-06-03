@@ -43,7 +43,7 @@ Antes de publicar:
 - En Supabase Authentication, anade estas URLs en Redirect URLs:
   - `https://tu-dominio.vercel.app/auth/callback`
   - `https://tu-dominio.com/auth/callback` si usas dominio propio.
-- Si activas Google OAuth, anade tambien esas URLs autorizadas en Google Cloud.
+- Si activas Google OAuth, en Google Cloud usa como redirect autorizado el callback de Supabase: `https://your-project.supabase.co/auth/v1/callback`.
 - En produccion, usa siempre un dominio HTTPS en `NEXT_PUBLIC_SITE_URL`.
 
 ## Funcionalidades disponibles
@@ -65,10 +65,17 @@ Antes de publicar:
 
 Activa Google en `Supabase Dashboard > Authentication > Providers > Google` y configura el Client ID y Client Secret creados en Google Cloud.
 
+En Google Cloud, el Authorized redirect URI debe ser el callback de Supabase:
+
+```text
+https://your-project.supabase.co/auth/v1/callback
+```
+
 En Supabase, anade las URLs permitidas de redireccion:
 
 ```text
 http://localhost:3000/auth/callback
+https://tu-dominio.vercel.app/auth/callback
 https://tu-dominio.com/auth/callback
 ```
 

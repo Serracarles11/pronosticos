@@ -3,8 +3,7 @@
 import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { login, signup } from "@/app/actions/auth";
-import { createClient } from "@/lib/supabase/client";
+import { login, loginWithGoogle, signup } from "@/app/actions/auth";
 import { normalizeAuthRedirect } from "@/lib/auth-redirect";
 
 function AuthContent() {
@@ -14,7 +13,6 @@ function AuthContent() {
   );
   const [error, setError] = useState<string | null>(() => searchParams.get("error"));
   const next = normalizeAuthRedirect(searchParams.get("next"));
-  const [isGooglePending, setIsGooglePending] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   async function handleLogin(formData: FormData) {
@@ -31,22 +29,6 @@ function AuthContent() {
       const result = await signup(formData);
       if (result?.error) setError(result.error);
     });
-  }
-
-  async function handleGoogleLogin() {
-    setError(null);
-    setIsGooglePending(true);
-    const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo },
-    });
-
-    if (oauthError) {
-      setError(oauthError.message);
-      setIsGooglePending(false);
-    }
   }
 
   return (
@@ -140,17 +122,17 @@ function AuthContent() {
             </div>
           )}
 
-          <button
-            className="btn btn--lg btn--flex auth-google"
-            disabled={isGooglePending || isPending}
-            onClick={handleGoogleLogin}
-            type="button"
-          >
-            {isGooglePending ? <span className="auth-spinner auth-spinner--dark" /> : (
+          <form action={loginWithGoogle}>
+            <input name="next" type="hidden" value={next} />
+            <button
+              className="btn btn--lg btn--flex auth-google"
+              disabled={isPending}
+              type="submit"
+            >
               <span className="auth-google__mark" aria-hidden="true">G</span>
-            )}
-            {isGooglePending ? "Conectando con Google..." : "Continuar con Google"}
-          </button>
+              Continuar con Google
+            </button>
+          </form>
 
           <div className="auth-divider"><span>o usa tu correo</span></div>
 
