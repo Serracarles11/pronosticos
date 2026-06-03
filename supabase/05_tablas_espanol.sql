@@ -1,5 +1,5 @@
 -- ============================================================
--- PULSO · Tablas con nombres en español (los que usa el código)
+-- TodosGanamos · Tablas con nombres en español (los que usa el código)
 -- Ejecutar en Supabase SQL Editor
 -- ============================================================
 

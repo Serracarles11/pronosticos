@@ -24,6 +24,9 @@ export function CommentForm({ pronosticoId, userInitials, userColor }: Props) {
         setError(result.error);
       } else {
         setText("");
+        if (result?.pending) {
+          setError("Comentario pendiente de revision.");
+        }
       }
     });
   }

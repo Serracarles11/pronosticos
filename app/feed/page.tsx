@@ -1,10 +1,18 @@
 import Link from "next/link";
-import { PulsoShell } from "../components/pulso-shell";
+import { redirect } from "next/navigation";
+import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { LikeButton } from "../components/like-button";
 import { FollowButton } from "../components/follow-button";
+import { SaveButton } from "../components/save-button";
+import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
+import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 
 const DEPORTES = ["Futbol", "Tenis", "NBA", "eSports", "Combinadas", "Otros"];
+const CATEGORIAS = [
+  ["quiniela", "Quiniela"],
+  ["cuota-alta", "Cuota alta"],
+] as const;
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 function avatarColor(username: string) {
@@ -47,40 +55,116 @@ function cleanPostgrestSearch(value: string) {
   return value.replace(/[,%(){}]/g, " ").trim();
 }
 
+function extractExactOdds(value: string) {
+  const match = value.match(/^(?:cuota\s*)?(\d+(?:[.,]\d{1,2})?)$/i);
+  if (!match) return null;
+
+  const odds = Number(match[1].replace(",", "."));
+  return odds >= 1.01 ? odds : null;
+}
+
+function madridMidnightIso(date: Date) {
+  const offset =
+    new Intl.DateTimeFormat("en", {
+      timeZone: "Europe/Madrid",
+      timeZoneName: "longOffset",
+    })
+      .formatToParts(date)
+      .find((part) => part.type === "timeZoneName")
+      ?.value.replace("GMT", "") ?? "+00:00";
+
+  return new Date(`${date.toISOString().slice(0, 10)}T00:00:00${offset}`).toISOString();
+}
+
+function currentMadridWeekRange(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  const start = new Date(Date.UTC(value("year"), value("month") - 1, value("day"), 12));
+  const daysSinceMonday = (start.getUTCDay() + 6) % 7;
+  start.setUTCDate(start.getUTCDate() - daysSinceMonday);
+
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 7);
+
+  return { start: madridMidnightIso(start), end: madridMidnightIso(end) };
+}
+
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; deporte?: string; q?: string; filtro?: string }>;
+  searchParams: Promise<{
+    sort?: string;
+    deporte?: string;
+    q?: string;
+    filtro?: string;
+    estado?: string;
+    confianza?: string;
+    cuota?: string;
+    periodo?: string;
+    categoria?: string;
+  }>;
 }) {
-  const { sort, deporte, q, filtro } = await searchParams;
+  const { sort, deporte, q, filtro, estado, confianza, cuota, periodo, categoria } =
+    await searchParams;
   const searchTerm = cleanSearchTerm(q);
   const searchFilter = cleanPostgrestSearch(searchTerm);
+  const exactOdds = extractExactOdds(searchTerm);
+  const activeEstado = ["pendiente", "acertada", "fallada"].includes(estado ?? "")
+    ? String(estado)
+    : "todos";
+  const activeConfianza = confianza === "alta" ? "alta" : "todas";
+  const activeCuota = cuota === "2" ? "2" : "todas";
+  const activePeriodo = periodo === "semana" ? "semana" : "proximas";
+  const activeCategoria = CATEGORIAS.some(([value]) => value === categoria)
+    ? String(categoria)
+    : "todas";
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect("/auth?next=/feed");
 
   const activeFilter = filtro === "siguiendo" ? "siguiendo" : "todos";
   let followedUserIds: string[] = [];
+  let requestedUserIds: string[] = [];
+  let blockedUserIds: string[] = [];
   if (user) {
-    const { data: follows } = await supabase
-      .from("seguimientos")
-      .select("following_id")
-      .eq("follower_id", user.id);
+    const [{ data: follows }, { data: requests }, { data: blocks }] = await Promise.all([
+      supabase
+        .from("seguimientos")
+        .select("following_id")
+        .eq("follower_id", user.id),
+      supabase
+        .from("seguimiento_solicitudes")
+        .select("following_id")
+        .eq("follower_id", user.id),
+      supabase
+        .from("user_blocks")
+        .select("blocked_id")
+        .eq("blocker_id", user.id),
+    ]);
     followedUserIds = (follows ?? []).map((follow) => follow.following_id);
+    requestedUserIds = (requests ?? []).map((request) => request.following_id);
+    blockedUserIds = (blocks ?? []).map((block) => block.blocked_id);
   }
 
   let query = supabase
     .from("pronosticos")
     .select(`
       id, evento, mercado, cuota, confianza, explicacion,
-      estado, competicion, deporte, created_at, user_id,
-      profiles!pronosticos_user_id_fkey ( username, display_name ),
+      estado, competicion, deporte, fecha_evento, created_at, user_id, visibilidad,
+      profiles!pronosticos_user_id_fkey ( username, display_name, is_private ),
       likes ( count ),
       comentarios ( count )
     `)
-    .eq("visibilidad", "publico");
+    .neq("visibilidad", "borrador");
 
   if (activeFilter === "siguiendo") {
     if (user && followedUserIds.length > 0) {
@@ -88,20 +172,52 @@ export default async function FeedPage({
     } else {
       query = query.eq("user_id", "00000000-0000-0000-0000-000000000000");
     }
+  } else if (user) {
+    const visibilityRules = ["visibilidad.eq.publico", `user_id.eq.${user.id}`];
+    if (followedUserIds.length > 0) {
+      visibilityRules.push(
+        `and(visibilidad.eq.seguidores,user_id.in.(${followedUserIds.join(",")}))`
+      );
+    }
+    query = query.or(visibilityRules.join(","));
+  } else {
+    query = query.eq("visibilidad", "publico");
   }
 
+  if (blockedUserIds.length > 0) {
+    query = query.not("user_id", "in", `(${blockedUserIds.join(",")})`);
+  }
+
+  if (activePeriodo === "semana") {
+    const week = currentMadridWeekRange();
+    query = query.gte("fecha_evento", week.start).lt("fecha_evento", week.end);
+  } else {
+    query = query.gte("fecha_evento", new Date().toISOString());
+  }
+
+  type SearchProfile = {
+    id: string;
+    username: string;
+    display_name: string | null;
+    bio: string | null;
+    is_private: boolean;
+  };
+  let matchedProfiles: SearchProfile[] = [];
   if (searchFilter) {
     const pattern = `%${searchFilter}%`;
-    const { data: matchedProfiles } = await supabase
+    const profilePattern = `%${searchFilter.replace(/^@/, "")}%`;
+    const { data } = await supabase
       .from("profiles")
-      .select("id")
-      .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
-      .limit(25);
+      .select("id, username, display_name, bio, is_private")
+      .or(`username.ilike.${profilePattern},display_name.ilike.${profilePattern}`)
+      .limit(8);
+    matchedProfiles = (data ?? []) as SearchProfile[];
 
     const authorFilters =
-      matchedProfiles && matchedProfiles.length > 0
+      matchedProfiles.length > 0
         ? [`user_id.in.(${matchedProfiles.map((profile) => profile.id).join(",")})`]
         : [];
+    const oddsFilters = exactOdds === null ? [] : [`cuota.eq.${exactOdds}`];
 
     query = query.or(
       [
@@ -110,6 +226,7 @@ export default async function FeedPage({
         `explicacion.ilike.${pattern}`,
         `competicion.ilike.${pattern}`,
         `deporte.ilike.${pattern}`,
+        ...oddsFilters,
         ...authorFilters,
       ].join(",")
     );
@@ -117,6 +234,26 @@ export default async function FeedPage({
 
   if (deporte && deporte !== "todos") {
     query = query.ilike("deporte", deporte);
+  }
+
+  if (activeEstado !== "todos") {
+    query = query.eq("estado", activeEstado);
+  }
+
+  if (activeConfianza === "alta") {
+    query = query.gte("confianza", 4);
+  }
+
+  if (activeCuota === "2") {
+    query = query.gte("cuota", 2);
+  }
+
+  if (activeCategoria === "quiniela") {
+    query = query.or(
+      "evento.ilike.%quiniela%,mercado.ilike.%quiniela%,competicion.ilike.%quiniela%,explicacion.ilike.%quiniela%"
+    );
+  } else if (activeCategoria === "cuota-alta") {
+    query = query.gte("cuota", 3);
   }
 
   if (sort === "votadas") {
@@ -129,63 +266,146 @@ export default async function FeedPage({
 
   const { data: pronosticos } = await query;
 
-  type FeedItem = Record<string, unknown> & { id: string; likes_count: number; comentarios_count: number };
-  const items: FeedItem[] = (pronosticos ?? []).map((p: Record<string, unknown>) => ({
+  type FeedItem = Record<string, unknown> & {
+    id: string;
+    user_id?: string | null;
+    moderation_status?: "approved" | "pending_review" | "rejected" | "hidden" | null;
+    is_shadowbanned?: boolean | null;
+    likes_count: number;
+    comentarios_count: number;
+  };
+  let items: FeedItem[] = (pronosticos ?? []).map((p: Record<string, unknown>) => ({
     ...p,
     likes_count: (p.likes as Array<{ count: number }>)?.[0]?.count ?? 0,
     comentarios_count: (p.comentarios as Array<{ count: number }>)?.[0]?.count ?? 0,
   })) as FeedItem[];
 
+  const mutedUserIds = await getMutedUserIds(supabase, user?.id);
+  let isAdmin = false;
+  if (user) {
+    const { data: currentProfile, error: currentProfileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!isMissingOptionalSchema(currentProfileError)) {
+      isAdmin = currentProfile?.role === "admin";
+    }
+  }
+
+  if (items.length > 0) {
+    const { data: moderationRows, error: moderationError } = await supabase
+      .from("pronosticos")
+      .select("id, user_id, moderation_status, profiles!pronosticos_user_id_fkey(is_shadowbanned)")
+      .in("id", items.map((item) => item.id));
+
+    if (!isMissingOptionalSchema(moderationError) && !moderationError) {
+      const moderationById = new Map(
+        (moderationRows ?? []).map((row: Record<string, unknown>) => {
+          const profile = row.profiles as { is_shadowbanned?: boolean } | null;
+          return [
+            row.id as string,
+            {
+              moderation_status: row.moderation_status as FeedItem["moderation_status"],
+              is_shadowbanned: !!profile?.is_shadowbanned,
+            },
+          ];
+        })
+      );
+      items = items.map((item) => ({ ...item, ...(moderationById.get(item.id) ?? {}) }));
+    }
+
+    items = filterVisibleItemsForModeration(
+      items,
+      user?.id ?? null,
+      mutedUserIds,
+      isAdmin
+    ) as FeedItem[];
+  }
+
   // Get which ones the current user has liked
   const userLikedIds = new Set<string>();
+  const userSavedIds = new Set<string>();
   if (user && items.length > 0) {
     const ids = items.map((i) => i.id as string);
-    const { data: userLikes } = await supabase
-      .from("likes")
-      .select("pronostico_id")
-      .eq("user_id", user.id)
-      .in("pronostico_id", ids);
+    const [{ data: userLikes }, { data: userSaved }] = await Promise.all([
+      supabase
+        .from("likes")
+        .select("pronostico_id")
+        .eq("user_id", user.id)
+        .in("pronostico_id", ids),
+      supabase
+        .from("guardados")
+        .select("pronostico_id")
+        .eq("user_id", user.id)
+        .in("pronostico_id", ids),
+    ]);
     for (const l of userLikes ?? []) {
       userLikedIds.add(l.pronostico_id);
+    }
+    for (const saved of userSaved ?? []) {
+      userSavedIds.add(saved.pronostico_id);
     }
   }
 
   const followedUserIdSet = new Set(followedUserIds);
+  const requestedUserIdSet = new Set(requestedUserIds);
   const activeSort = sort ?? "recientes";
   const activeDeporte = deporte ?? "todos";
 
-  function sortLink(s: string) {
+  function feedLink(overrides: {
+    sort?: string;
+    deporte?: string;
+    filtro?: string;
+    estado?: string;
+    confianza?: string;
+    cuota?: string;
+    q?: string;
+    periodo?: string;
+    categoria?: string;
+  }) {
     const params = new URLSearchParams();
-    if (s !== "recientes") params.set("sort", s);
-    if (activeDeporte !== "todos") params.set("deporte", activeDeporte);
-    if (searchTerm) params.set("q", searchTerm);
-    if (activeFilter !== "todos") params.set("filtro", activeFilter);
+    const nextSort = overrides.sort ?? activeSort;
+    const nextDeporte = overrides.deporte ?? activeDeporte;
+    const nextFiltro = overrides.filtro ?? activeFilter;
+    const nextEstado = overrides.estado ?? activeEstado;
+    const nextConfianza = overrides.confianza ?? activeConfianza;
+    const nextCuota = overrides.cuota ?? activeCuota;
+    const nextSearch = overrides.q ?? searchTerm;
+    const nextPeriodo = overrides.periodo ?? activePeriodo;
+    const nextCategoria = overrides.categoria ?? activeCategoria;
+
+    if (nextSort !== "recientes") params.set("sort", nextSort);
+    if (nextDeporte !== "todos") params.set("deporte", nextDeporte);
+    if (nextSearch) params.set("q", nextSearch);
+    if (nextFiltro !== "todos") params.set("filtro", nextFiltro);
+    if (nextEstado !== "todos") params.set("estado", nextEstado);
+    if (nextConfianza !== "todas") params.set("confianza", nextConfianza);
+    if (nextCuota !== "todas") params.set("cuota", nextCuota);
+    if (nextPeriodo !== "proximas") params.set("periodo", nextPeriodo);
+    if (nextCategoria !== "todas") params.set("categoria", nextCategoria);
     const qs = params.toString();
     return `/feed${qs ? `?${qs}` : ""}`;
+  }
+
+  function sortLink(s: string) {
+    return feedLink({ sort: s });
   }
 
   function deporteLink(d: string) {
-    const params = new URLSearchParams();
-    if (activeSort !== "recientes") params.set("sort", activeSort);
-    if (d !== "todos") params.set("deporte", d);
-    if (searchTerm) params.set("q", searchTerm);
-    if (activeFilter !== "todos") params.set("filtro", activeFilter);
-    const qs = params.toString();
-    return `/feed${qs ? `?${qs}` : ""}`;
+    return feedLink({ deporte: d });
   }
 
   function filtroLink(f: string) {
-    const params = new URLSearchParams();
-    if (activeSort !== "recientes") params.set("sort", activeSort);
-    if (activeDeporte !== "todos") params.set("deporte", activeDeporte);
-    if (searchTerm) params.set("q", searchTerm);
-    if (f !== "todos") params.set("filtro", f);
-    const qs = params.toString();
-    return `/feed${qs ? `?${qs}` : ""}`;
+    return feedLink({ filtro: f });
+  }
+
+  function categoriaLink(c: string) {
+    return feedLink({ categoria: c });
   }
 
   return (
-    <PulsoShell active="feed" searchValue={searchTerm} hideFooter>
+    <TodosGanamosShell active="feed" searchValue={searchTerm} hideFooter>
       <main className="feed">
         <div className="feed__inner">
           <aside className="feed__side feed__side--left hide-mobile">
@@ -210,6 +430,26 @@ export default async function FeedPage({
               </nav>
             </div>
             <div className="side-section">
+              <h4 className="side-section__title">Categorias</h4>
+              <nav className="side-list">
+                <Link
+                  className={`side-link ${activeCategoria === "todas" ? "is-active" : ""}`}
+                  href={categoriaLink("todas")}
+                >
+                  Todas
+                </Link>
+                {CATEGORIAS.map(([value, label]) => (
+                  <Link
+                    key={value}
+                    className={`side-link ${activeCategoria === value ? "is-active" : ""}`}
+                    href={categoriaLink(value)}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+            <div className="side-section">
               <h4 className="side-section__title">Tu actividad</h4>
               <nav className="side-list">
                 <Link
@@ -219,6 +459,7 @@ export default async function FeedPage({
                   Siguiendo
                 </Link>
                 <Link className="side-link" href="/perfil">Mi perfil</Link>
+                <Link className="side-link" href="/guardados">Guardados</Link>
                 <Link className="side-link" href="/nuevo">Nuevo pronostico</Link>
               </nav>
             </div>
@@ -263,6 +504,47 @@ export default async function FeedPage({
                 >
                   Siguiendo
                 </Link>
+                <Link
+                  className={`chip ${activeEstado === "pendiente" ? "is-active" : ""}`}
+                  href={feedLink({ estado: activeEstado === "pendiente" ? "todos" : "pendiente" })}
+                >
+                  Pendientes
+                </Link>
+                <Link
+                  className={`chip ${activeEstado === "acertada" ? "is-active" : ""}`}
+                  href={feedLink({ estado: activeEstado === "acertada" ? "todos" : "acertada" })}
+                >
+                  Acertadas
+                </Link>
+                <Link
+                  className={`chip ${activeConfianza === "alta" ? "is-active" : ""}`}
+                  href={feedLink({ confianza: activeConfianza === "alta" ? "todas" : "alta" })}
+                >
+                  Confianza alta
+                </Link>
+                <Link
+                  className={`chip ${activeCuota === "2" ? "is-active" : ""}`}
+                  href={feedLink({ cuota: activeCuota === "2" ? "todas" : "2" })}
+                >
+                  Cuota 2+
+                </Link>
+                {CATEGORIAS.map(([value, label]) => (
+                  <Link
+                    key={value}
+                    className={`chip ${activeCategoria === value ? "is-active" : ""}`}
+                    href={categoriaLink(activeCategoria === value ? "todas" : value)}
+                  >
+                    {label}
+                  </Link>
+                ))}
+                <Link
+                  className={`chip ${activePeriodo === "semana" ? "is-active" : ""}`}
+                  href={feedLink({ periodo: activePeriodo === "semana" ? "proximas" : "semana" })}
+                >
+                  {activePeriodo === "semana"
+                    ? "Ver solo las proximas"
+                    : "Ver todas las de la semana"}
+                </Link>
                 {searchTerm && (
                   <Link className="chip" href="/feed">
                     Limpiar busqueda
@@ -275,6 +557,37 @@ export default async function FeedPage({
             </div>
 
             <div className="feed__scroll">
+            {searchTerm && matchedProfiles.length > 0 && (
+              <section className="feed-search-users">
+                <div className="feed-search-users__head">
+                  <strong>Usuarios encontrados</strong>
+                  <span>{matchedProfiles.length}</span>
+                </div>
+                <div className="feed-search-users__list">
+                  {matchedProfiles.map((profile) => {
+                    const displayName = profile.display_name ?? profile.username;
+                    return (
+                      <Link
+                        className="feed-search-user"
+                        href={`/u/${profile.username}`}
+                        key={profile.id}
+                      >
+                        <span className={`avatar avatar--md avatar--${avatarColor(profile.username)}`}>
+                          {profile.username.slice(0, 2).toUpperCase()}
+                        </span>
+                        <span>
+                          <strong>{displayName}</strong>
+                          <small>
+                            @{profile.username}
+                            {profile.is_private ? " - Cuenta privada" : ""}
+                          </small>
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
             {items.length === 0 ? (
               <div className="card" style={{ padding: 32, textAlign: "center" }}>
                 <p style={{ marginBottom: 16 }}>
@@ -286,7 +599,9 @@ export default async function FeedPage({
                     ? "Aun no hay pronosticos publicos de gente que sigues."
                     : activeDeporte !== "todos"
                     ? `No hay pronosticos de ${activeDeporte} todavia.`
-                    : "Aun no hay pronosticos publicados."}
+                    : activePeriodo === "semana"
+                    ? "No hay pronosticos publicados esta semana."
+                    : "No hay pronosticos proximos. Puedes ver todos los de esta semana."}
                 </p>
                 <Link href="/nuevo" className="btn btn--primary">
                   Publica el primero
@@ -296,9 +611,11 @@ export default async function FeedPage({
               items.map((item, i) => {
                 const username =
                   (item.profiles as { username: string } | null)?.username ?? "usuario";
+                const profile = item.profiles as { username: string; is_private?: boolean } | null;
                 const color = avatarColor(username);
                 const initials = username.slice(0, 2).toUpperCase();
                 const isLiked = userLikedIds.has(item.id as string);
+                const isSaved = userSavedIds.has(item.id as string);
                 const userId = item.user_id as string;
                 const canFollow = !!user && user.id !== userId;
 
@@ -310,14 +627,14 @@ export default async function FeedPage({
                     <header className="pred__head">
                       <div className="pred__author">
                         <Link
-                          href={`/perfil?user=${username}`}
+                          href={`/u/${username}`}
                           className={`avatar avatar--md avatar--${color}`}
                         >
                           {initials}
                         </Link>
                         <div className="pred__author-meta">
                           <span className="pred__user">
-                            <Link href={`/perfil?user=${username}`}>{username}</Link>
+                            <Link href={`/u/${username}`}>{username}</Link>
                           </span>
                           <span className="pred__sub">
                             {timeAgo(item.created_at as string)}
@@ -327,10 +644,14 @@ export default async function FeedPage({
                       </div>
                       <div className="pred__head-actions">
                         <EstadoPill estado={item.estado as string} />
+                        {item.moderation_status === "pending_review" && user?.id === userId && (
+                          <span className="badge badge--warn">Pendiente de revision</span>
+                        )}
                         {canFollow && (
                           <FollowButton
                             targetUserId={userId}
                             initialFollowing={followedUserIdSet.has(userId)}
+                            initialRequested={requestedUserIdSet.has(userId)}
                           />
                         )}
                       </div>
@@ -364,6 +685,9 @@ export default async function FeedPage({
                         {String(item.explicacion).length > 120 ? "..." : ""}
                       </p>
                     )}
+                    {profile?.is_private && !followedUserIdSet.has(userId) && user?.id !== userId && (
+                      <span className="badge badge--lock">Cuenta privada</span>
+                    )}
                     <footer className="pred__foot">
                       <div className="pred__actions">
                         {user ? (
@@ -378,6 +702,12 @@ export default async function FeedPage({
                         <Link href={`/detalle?id=${item.id as string}#comentarios`}>
                           💬 {item.comentarios_count as number}
                         </Link>
+                        {user && (
+                          <SaveButton
+                            pronosticoId={item.id as string}
+                            initialSaved={isSaved}
+                          />
+                        )}
                         <Link href={`/detalle?id=${item.id as string}`} className="muted">
                           Ver →
                         </Link>
@@ -415,6 +745,6 @@ export default async function FeedPage({
           </aside>
         </div>
       </main>
-    </PulsoShell>
+    </TodosGanamosShell>
   );
 }

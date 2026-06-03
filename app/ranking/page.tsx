@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { PulsoShell } from "../components/pulso-shell";
+import { redirect } from "next/navigation";
+import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { FollowButton } from "../components/follow-button";
+import { isMissingOptionalSchema } from "@/lib/anti-spam/server";
+import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 function avatarColor(username: string) {
@@ -21,6 +24,16 @@ type RankUser = {
   deporte: string;
 };
 
+type RankingPronostico = {
+  id: string;
+  user_id: string;
+  estado: string;
+  deporte: string | null;
+  profiles: unknown;
+  moderation_status?: "approved" | "pending_review" | "rejected" | "hidden" | null;
+  is_shadowbanned?: boolean | null;
+};
+
 export default async function RankingPage({
   searchParams,
 }: {
@@ -34,6 +47,24 @@ export default async function RankingPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect("/auth?next=/ranking");
+
+  let followedUserIds: string[] = [];
+  let requestedUserIds: string[] = [];
+  if (user) {
+    const [followsRes, requestsRes] = await Promise.all([
+      supabase
+        .from("seguimientos")
+        .select("following_id")
+        .eq("follower_id", user.id),
+      supabase
+        .from("seguimiento_solicitudes")
+        .select("following_id")
+        .eq("follower_id", user.id),
+    ]);
+    followedUserIds = (followsRes.data ?? []).map((follow) => follow.following_id);
+    requestedUserIds = (requestsRes.data ?? []).map((request) => request.following_id);
+  }
 
   // Date filter
   const now = new Date();
@@ -50,17 +81,57 @@ export default async function RankingPage({
 
   let query = supabase
     .from("pronosticos")
-    .select("user_id, estado, deporte, profiles!pronosticos_user_id_fkey(id, username, display_name)")
+    .select("id, user_id, estado, deporte, profiles!pronosticos_user_id_fkey(id, username, display_name)")
     .eq("visibilidad", "publico");
 
   if (desde) query = query.gte("created_at", desde);
   if (activeDeporte !== "todos") query = query.ilike("deporte", activeDeporte);
 
   const { data: prons } = await query;
+  let visibleProns = (prons ?? []) as RankingPronostico[];
+
+  if (visibleProns.length > 0) {
+    const [{ data: profileRows, error: profileError }, { data: moderationRows, error: moderationError }] =
+      await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, is_shadowbanned")
+          .in("id", visibleProns.map((p) => p.user_id)),
+        supabase
+          .from("pronosticos")
+          .select("id, moderation_status")
+          .in("id", visibleProns.map((p) => p.id)),
+      ]);
+
+    const shadowByUser = new Map<string, boolean>();
+    if (!isMissingOptionalSchema(profileError) && !profileError) {
+      for (const profile of profileRows ?? []) {
+        shadowByUser.set(profile.id, !!profile.is_shadowbanned);
+      }
+    }
+
+    const moderationById = new Map<string, RankingPronostico["moderation_status"]>();
+    if (!isMissingOptionalSchema(moderationError) && !moderationError) {
+      for (const row of moderationRows ?? []) {
+        moderationById.set(row.id, row.moderation_status);
+      }
+    }
+
+    visibleProns = filterVisibleItemsForModeration<RankingPronostico>(
+      visibleProns.map((p) => ({
+        ...p,
+        moderation_status: moderationById.get(p.id) ?? "approved",
+        is_shadowbanned: shadowByUser.get(p.user_id) ?? false,
+      })),
+      user.id,
+      new Set(),
+      false
+    );
+  }
 
   // Aggregate by user
   const byUser = new Map<string, RankUser>();
-  for (const p of prons ?? []) {
+  for (const p of visibleProns) {
     const prof = p.profiles as unknown as { id: string; username: string; display_name: string | null } | null;
     if (!prof) continue;
     const existing = byUser.get(p.user_id) ?? {
@@ -104,6 +175,8 @@ export default async function RankingPage({
 
   const podium = ranking.slice(0, 3);
   const rest = ranking.slice(3);
+  const followedUserIdSet = new Set(followedUserIds);
+  const requestedUserIdSet = new Set(requestedUserIds);
 
   // Reorder podium: 2nd, 1st, 3rd
   const podiumOrdered =
@@ -128,7 +201,7 @@ export default async function RankingPage({
   }
 
   return (
-    <PulsoShell active="ranking" hideFooter>
+    <TodosGanamosShell active="ranking" hideFooter>
       <main className="container ranking">
         <header className="ranking__header">
           <div>
@@ -188,14 +261,14 @@ export default async function RankingPage({
                     >
                       <span className="mono podium__pos">{realPos}</span>
                       <Link
-                        href={`/perfil?user=${u.username}`}
+                        href={`/u/${u.username}`}
                         className={`avatar ${isFirst ? "avatar--xl podium__avatar-xl" : "avatar--lg"} avatar--${color}`}
                       >
                         {initials}
                       </Link>
                       <div className="podium__body">
                         <div className="podium__name">
-                          <Link href={`/perfil?user=${u.username}`}>{u.username}</Link>
+                          <Link href={`/u/${u.username}`}>{u.username}</Link>
                           {isFirst && <span className="badge badge--gold">Top</span>}
                         </div>
                         <div className="podium__meta">
@@ -236,14 +309,14 @@ export default async function RankingPage({
                       <div className="mono rank-table__pos">{pos}</div>
                       <div className="rank-table__user">
                         <Link
-                          href={`/perfil?user=${u.username}`}
+                          href={`/u/${u.username}`}
                           className={`avatar avatar--sm avatar--${color}`}
                         >
                           {initials}
                         </Link>
                         <div>
                           <div className="rank-table__name">
-                            <Link href={`/perfil?user=${u.username}`}>{u.username}</Link>
+                            <Link href={`/u/${u.username}`}>{u.username}</Link>
                           </div>
                           <div className="rank-table__sub">
                             {u.deporte} · {u.total} pron.
@@ -255,7 +328,11 @@ export default async function RankingPage({
                       <div className="num mono">{u.total}</div>
                       <div className="rank-table__action">
                         {user && user.id !== u.userId ? (
-                          <FollowButton targetUserId={u.userId} initialFollowing={false} />
+                          <FollowButton
+                            targetUserId={u.userId}
+                            initialFollowing={followedUserIdSet.has(u.userId)}
+                            initialRequested={requestedUserIdSet.has(u.userId)}
+                          />
                         ) : null}
                       </div>
                     </div>
@@ -298,6 +375,6 @@ export default async function RankingPage({
           </div>
         )}
       </main>
-    </PulsoShell>
+    </TodosGanamosShell>
   );
 }

@@ -1,5 +1,5 @@
 -- ============================================================
--- PULSO - Cierre de pronosticos con captura obligatoria
+-- TodosGanamos - Cierre de pronosticos con captura obligatoria
 -- Ejecutar en Supabase SQL Editor DESPUES de 05_tablas_espanol.sql
 -- ============================================================
 

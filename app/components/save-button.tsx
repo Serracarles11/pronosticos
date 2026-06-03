@@ -21,10 +21,11 @@ export function SaveButton({ pronosticoId, initialSaved }: Props) {
   return (
     <button
       onClick={handleClick}
-      className={saved ? "btn btn--ghost is-active" : "btn btn--ghost"}
+      className={saved ? "save-button is-active" : "save-button"}
       aria-label={saved ? "Quitar guardado" : "Guardar"}
     >
-      {saved ? "🔖 Guardado" : "🔖 Guardar"}
+      <span aria-hidden="true">{saved ? "✓" : "+"}</span>
+      {saved ? "Guardado" : "Guardar"}
     </button>
   );
 }

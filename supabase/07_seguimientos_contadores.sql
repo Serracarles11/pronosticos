@@ -1,5 +1,5 @@
 -- ============================================================
--- PULSO - Contadores para seguimientos
+-- TodosGanamos - Contadores para seguimientos
 -- Ejecutar en Supabase SQL Editor DESPUES de 05_tablas_espanol.sql
 -- ============================================================
 

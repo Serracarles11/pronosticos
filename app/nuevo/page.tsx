@@ -2,10 +2,20 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { PulsoShell } from "../components/pulso-shell";
+import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createPronostico } from "@/app/actions/pronosticos";
+import { formatPickCategory, normalizePickCategories } from "@/lib/pronostico-meta";
 
 type Pick = { mercado: string; cuota: string };
+
+const CATEGORY_PRESETS = [
+  ["quiniela", "Quiniela"],
+  ["cuota-alta", "Cuota alta"],
+  ["combinada", "Combinada"],
+  ["laliga", "LaLiga"],
+  ["champions", "Champions"],
+  ["value-bet", "Value bet"],
+] as const;
 
 function combinedOdds(picks: Pick[]): number {
   return picks.reduce((acc, p) => {
@@ -17,6 +27,8 @@ function combinedOdds(picks: Pick[]): number {
 export default function NuevoPage() {
   const [confianza, setConfianza] = useState(4);
   const [picks, setPicks] = useState<Pick[]>([{ mercado: "", cuota: "" }]);
+  const [categorias, setCategorias] = useState("");
+  const [copyLink, setCopyLink] = useState("");
   const [preview, setPreview] = useState({
     evento: "Real Sociedad - Villarreal",
     explicacion: "La Real lleva 6 partidos seguidos con BTTS en casa...",
@@ -37,6 +49,16 @@ export default function NuevoPage() {
     setPicks((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  function toggleCategory(category: string) {
+    setCategorias((current) => {
+      const currentCategories = normalizePickCategories(current);
+      const next = currentCategories.includes(category)
+        ? currentCategories.filter((item) => item !== category)
+        : [...currentCategories, category];
+      return next.join(", ");
+    });
+  }
+
   const totalOdds = combinedOdds(picks);
   const previewMercado =
     picks.length === 1
@@ -48,6 +70,7 @@ export default function NuevoPage() {
     picks.length === 1
       ? picks[0].cuota || "?"
       : totalOdds.toFixed(2);
+  const previewCategories = normalizePickCategories(categorias);
 
   async function handleSubmit(formData: FormData) {
     formData.set("confianza", String(confianza));
@@ -71,7 +94,7 @@ export default function NuevoPage() {
   }
 
   return (
-    <PulsoShell active="feed">
+    <TodosGanamosShell active="feed">
       <main className="publish">
         <div className="publish__inner">
           <section className="publish__form">
@@ -83,6 +106,10 @@ export default function NuevoPage() {
               Publica lo que ves antes que nadie. Cuanto mas claro lo expliques,
               mas facil sera que la comunidad te siga.
             </p>
+            <div className="responsible-note responsible-note--compact">
+              <strong>+18</strong>
+              <span>No publiques llamadas a apostar dinero real ni promesas de ganancia.</span>
+            </div>
 
             {error && <div className="auth-error" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -250,7 +277,7 @@ export default function NuevoPage() {
                   defaultValue=""
                 />
                 <div className="field__hint">
-                  Min. 20 caracteres. Pulso premia las apuestas argumentadas.
+                  Min. 20 caracteres. TodosGanamos premia las apuestas argumentadas.
                 </div>
               </div>
 
@@ -275,6 +302,90 @@ export default function NuevoPage() {
                     <option value="seguidores">Solo seguidores</option>
                     <option value="borrador">Borrador privado</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="publish__grid-2">
+                <div className="field">
+                  <label className="field__label" htmlFor="bookmaker">
+                    Bookmaker de referencia
+                  </label>
+                  <select className="select" defaultValue="" id="bookmaker" name="bookmaker">
+                    <option value="">No indicar</option>
+                    <option>Bet365</option>
+                    <option>Winamax</option>
+                    <option>Betfair</option>
+                    <option>Betway</option>
+                    <option>Otro</option>
+                  </select>
+                  <div className="field__hint">Solo como referencia informativa de la cuota.</div>
+                </div>
+                <div className="field">
+                  <label className="field__label" htmlFor="stake_simulado">
+                    Stake simulado
+                  </label>
+                  <input
+                    className="input mono"
+                    defaultValue="1"
+                    id="stake_simulado"
+                    max="100"
+                    min="0.1"
+                    name="stake_simulado"
+                    step="0.1"
+                    type="number"
+                  />
+                  <div className="field__hint">Unidades ficticias. Nunca representa dinero real.</div>
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="field__label" htmlFor="copy_link">
+                  Link para copiar la apuesta
+                </label>
+                <input
+                  className="input"
+                  id="copy_link"
+                  name="copy_link"
+                  onChange={(event) => setCopyLink(event.target.value)}
+                  placeholder="https://..."
+                  type="url"
+                  value={copyLink}
+                />
+                <div className="field__hint">
+                  Opcional. Solo se aceptan enlaces HTTPS. TodosGanamos no permite apostar dentro de la app.
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="field__label" htmlFor="categorias">
+                  Categorias de la apuesta
+                </label>
+                <input
+                  className="input"
+                  id="categorias"
+                  name="categorias"
+                  onChange={(event) => setCategorias(event.target.value)}
+                  placeholder="quiniela, cuota-alta, laliga"
+                  value={categorias}
+                />
+                <div className="publish-category-presets">
+                  {CATEGORY_PRESETS.map(([value, label]) => {
+                    const isSelected = previewCategories.includes(value);
+                    return (
+                      <button
+                        aria-pressed={isSelected}
+                        className={isSelected ? "is-active" : undefined}
+                        key={value}
+                        onClick={() => toggleCategory(value)}
+                        type="button"
+                      >
+                        {isSelected ? "×" : "+"} {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="field__hint">
+                  Separalas con comas. Se normalizan para busqueda y filtros.
                 </div>
               </div>
 
@@ -315,6 +426,15 @@ export default function NuevoPage() {
                 </span>
               </header>
               <h3 className="pred__title">{preview.evento}</h3>
+              {previewCategories.length > 0 && (
+                <div className="pred-meta-list">
+                  {previewCategories.map((category) => (
+                    <span className="badge" key={category}>
+                      {formatPickCategory(category)}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="pred__strip">
                 <div className="pred__cell">
                   <div className="pred__cell-label">Pronostico</div>
@@ -336,6 +456,9 @@ export default function NuevoPage() {
               {preview.explicacion && (
                 <p className="pred__body">{preview.explicacion.slice(0, 100)}{preview.explicacion.length > 100 ? "..." : ""}</p>
               )}
+              {copyLink && (
+                <span className="badge badge--purple">Incluye link de copia</span>
+              )}
             </article>
 
             <div className="notice publish__notice">
@@ -343,7 +466,7 @@ export default function NuevoPage() {
               <div>
                 <strong className="notice__title">Recuerda</strong>
                 <span className="notice__body">
-                  Pulso es una comunidad de pronosticos. No se apuesta dinero real.
+                  TodosGanamos es una comunidad de pronosticos. No se apuesta dinero real.
                 </span>
               </div>
             </div>
@@ -360,6 +483,6 @@ export default function NuevoPage() {
           </aside>
         </div>
       </main>
-    </PulsoShell>
+    </TodosGanamosShell>
   );
 }

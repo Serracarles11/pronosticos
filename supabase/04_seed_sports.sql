@@ -1,5 +1,5 @@
 -- ============================================================
--- PULSO · Datos iniciales: deportes y competiciones
+-- TodosGanamos · Datos iniciales: deportes y competiciones
 -- Ejecuta DESPUES de 03_triggers.sql
 -- ============================================================
 

@@ -1,5 +1,5 @@
 -- ============================================================
--- PULSO · Schema completo ejecutable
+-- TodosGanamos · Schema completo ejecutable
 -- Ejecuta este archivo DESPUES de 00_types.sql
 -- ============================================================
 

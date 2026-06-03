@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { PulsoShell } from "../components/pulso-shell";
+import { notFound, redirect } from "next/navigation";
+import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { LikeButton } from "../components/like-button";
 import { CommentForm } from "../components/comment-form";
@@ -8,6 +8,11 @@ import { SaveButton } from "../components/save-button";
 import { FollowButton } from "../components/follow-button";
 import { SettlementForm } from "../components/settlement-form";
 import { ProofImageModal } from "../components/proof-image-modal";
+import { ReportButton } from "../components/report-button";
+import { ShareButton } from "../components/share-button";
+import { formatPickCategory } from "@/lib/pronostico-meta";
+import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
+import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 
@@ -51,16 +56,17 @@ export default async function DetallePage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (!user) redirect(`/auth?next=${encodeURIComponent(`/detalle?id=${id}`)}`);
 
   const { data: p } = await supabase
     .from("pronosticos")
-    .select("*, profiles!pronosticos_user_id_fkey(username, display_name, bio)")
+    .select("*, profiles!pronosticos_user_id_fkey(username, display_name, bio, is_private)")
     .eq("id", id)
     .single();
 
   if (!p) notFound();
 
-  const [{ count: likesCount }, likedRes, savedRes, followingRes, comentariosRes, masDelAutorRes] =
+  const [{ count: likesCount }, likedRes, savedRes, followingRes, requestRes, comentariosRes, masDelAutorRes] =
     await Promise.all([
       supabase
         .from("likes")
@@ -90,6 +96,14 @@ export default async function DetallePage({
             .eq("following_id", p.user_id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
+      user
+        ? supabase
+            .from("seguimiento_solicitudes")
+            .select("follower_id")
+            .eq("follower_id", user.id)
+            .eq("following_id", p.user_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
       supabase
         .from("comentarios")
         .select("*, profiles!comentarios_user_id_fkey(username)")
@@ -97,10 +111,10 @@ export default async function DetallePage({
         .order("created_at", { ascending: true }),
       supabase
         .from("pronosticos")
-        .select("id, evento, mercado, estado")
+        .select("id, evento, mercado, estado, visibilidad")
         .eq("user_id", p.user_id)
         .neq("id", id)
-        .eq("visibilidad", "publico")
+        .neq("visibilidad", "borrador")
         .order("created_at", { ascending: false })
         .limit(4),
     ]);
@@ -109,10 +123,11 @@ export default async function DetallePage({
   const isLiked = !!likedRes?.data;
   const isSaved = !!savedRes?.data;
   const isFollowing = !!followingRes?.data;
-  const comentarios = comentariosRes?.data ?? [];
+  const hasRequested = !!requestRes?.data;
+  let comentarios = comentariosRes?.data ?? [];
   const masDelAutor = masDelAutorRes?.data ?? [];
 
-  const autor = p.profiles as { username: string; display_name: string | null; bio: string | null } | null;
+  const autor = p.profiles as { username: string; display_name: string | null; bio: string | null; is_private?: boolean } | null;
   const autorUsername = autor?.username ?? "usuario";
   const autorColor = avatarColor(autorUsername);
   const autorInitials = autorUsername.slice(0, 2).toUpperCase();
@@ -122,10 +137,47 @@ export default async function DetallePage({
     : "??";
   const userColor = user ? avatarColor(user.email?.split("@")[0] ?? "yo") : "blue";
   const isOwner = user?.id === p.user_id;
+  const { data: currentProfile, error: currentProfileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isAdmin = !isMissingOptionalSchema(currentProfileError) && currentProfile?.role === "admin";
+
+  if (comentarios.length > 0) {
+    const mutedUserIds = await getMutedUserIds(supabase, user.id);
+    const commenterIds = Array.from(new Set(comentarios.map((comment) => comment.user_id).filter(Boolean)));
+    const { data: commenterProfiles, error: commenterProfilesError } = await supabase
+      .from("profiles")
+      .select("id, is_shadowbanned")
+      .in("id", commenterIds);
+    const shadowByUser = new Map<string, boolean>();
+    if (!isMissingOptionalSchema(commenterProfilesError) && !commenterProfilesError) {
+      for (const profile of commenterProfiles ?? []) {
+        shadowByUser.set(profile.id, !!profile.is_shadowbanned);
+      }
+    }
+    comentarios = filterVisibleItemsForModeration(
+      comentarios.map((comment) => ({
+        ...comment,
+        is_shadowbanned: shadowByUser.get(comment.user_id) ?? false,
+      })),
+      user.id,
+      mutedUserIds,
+      isAdmin
+    );
+  }
+
   const canSettle = isOwner && canSettlePronostico(p.fecha_evento, p.estado);
+  const impliedProbability = Math.round((1 / Number(p.cuota)) * 100);
+  const confidenceLabel =
+    p.confianza >= 4 ? "Conviccion alta" : p.confianza === 3 ? "Conviccion media" : "Conviccion prudente";
+  const categorias = Array.isArray(p.categorias) ? (p.categorias as string[]) : [];
+  const copyLink =
+    typeof p.copy_link === "string" && p.copy_link.startsWith("https://") ? p.copy_link : null;
 
   return (
-    <PulsoShell active="feed">
+    <TodosGanamosShell active="feed">
       <main className="detail">
         <div className="detail__inner">
           <section className="detail__main">
@@ -156,14 +208,14 @@ export default async function DetallePage({
               <header className="pred__head">
                 <div className="pred__author">
                   <Link
-                    href={`/perfil?user=${autorUsername}`}
+                    href={`/u/${autorUsername}`}
                     className={`avatar avatar--lg avatar--${autorColor}`}
                   >
                     {autorInitials}
                   </Link>
                   <div className="pred__author-meta">
                     <span className="pred__user">
-                      <Link href={`/perfil?user=${autorUsername}`}>{autorUsername}</Link>
+                      <Link href={`/u/${autorUsername}`}>{autorUsername}</Link>
                     </span>
                     <span className="pred__sub">
                       {timeAgo(p.created_at)}
@@ -171,7 +223,12 @@ export default async function DetallePage({
                     </span>
                   </div>
                 </div>
-                <EstadoPill estado={p.estado} />
+                <div className="pred__head-actions">
+                  <EstadoPill estado={p.estado} />
+                  {p.moderation_status === "pending_review" && isOwner && (
+                    <span className="badge badge--warn">Pendiente de revision</span>
+                  )}
+                </div>
               </header>
 
               <div>
@@ -189,6 +246,26 @@ export default async function DetallePage({
                   </p>
                 )}
               </div>
+
+              {(categorias.length > 0 || copyLink) && (
+                <div className="pred-meta-list">
+                  {categorias.map((category) => (
+                    <span className="badge" key={category}>
+                      {formatPickCategory(category)}
+                    </span>
+                  ))}
+                  {copyLink && (
+                    <a
+                      className="badge badge--purple pred-meta-link"
+                      href={copyLink}
+                      rel="noopener noreferrer nofollow"
+                      target="_blank"
+                    >
+                      Link para copiar
+                    </a>
+                  )}
+                </div>
+              )}
 
               <div className="pred__strip">
                 <div className="pred__cell">
@@ -252,6 +329,8 @@ export default async function DetallePage({
                   {user && (
                     <SaveButton pronosticoId={id} initialSaved={isSaved} />
                   )}
+                  <ShareButton title={`${p.evento} - ${p.mercado}`} />
+                  {user && !isOwner && <ReportButton pronosticoId={id} />}
                 </div>
               </footer>
             </article>
@@ -282,7 +361,7 @@ export default async function DetallePage({
                   return (
                     <article className="comment" key={c.id}>
                       <Link
-                        href={`/perfil?user=${cUsername}`}
+                        href={`/u/${cUsername}`}
                         className={`avatar avatar--md avatar--${cColor}`}
                       >
                         {cInitials}
@@ -294,6 +373,9 @@ export default async function DetallePage({
                             <span className="comment__time">· {timeAgo(c.created_at)}</span>
                           </header>
                           <p>{c.contenido}</p>
+                          {c.moderation_status === "pending_review" && c.user_id === user.id && (
+                            <span className="badge badge--warn">Pendiente de revision</span>
+                          )}
                         </div>
                       </div>
                     </article>
@@ -310,6 +392,24 @@ export default async function DetallePage({
           </section>
 
           <aside className="detail__rail">
+            <div className="side-section">
+              <h4 className="side-section__title">Lectura rapida</h4>
+              <div className="insight-card">
+                <div>
+                  <span>Probabilidad implicita</span>
+                  <strong className="mono">{impliedProbability}%</strong>
+                </div>
+                <div>
+                  <span>Confianza del autor</span>
+                  <strong>{confidenceLabel}</strong>
+                </div>
+                <div>
+                  <span>Estado</span>
+                  <strong>{p.estado}</strong>
+                </div>
+              </div>
+            </div>
+
             {masDelAutor.length > 0 && (
               <div className="side-section">
                 <h4 className="side-section__title">Mas de {autorUsername}</h4>
@@ -343,7 +443,7 @@ export default async function DetallePage({
                   ))}
                 </div>
                 <Link
-                  href={`/perfil?user=${autorUsername}`}
+                  href={`/u/${autorUsername}`}
                   className="btn btn--ghost"
                   style={{ marginTop: 8, width: "100%" }}
                 >
@@ -356,7 +456,7 @@ export default async function DetallePage({
               <h4 className="side-section__title">Sobre {autorUsername}</h4>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <Link
-                  href={`/perfil?user=${autorUsername}`}
+                  href={`/u/${autorUsername}`}
                   className={`avatar avatar--lg avatar--${autorColor}`}
                   style={{ alignSelf: "flex-start" }}
                 >
@@ -368,6 +468,7 @@ export default async function DetallePage({
                   <FollowButton
                     targetUserId={p.user_id}
                     initialFollowing={isFollowing}
+                    initialRequested={hasRequested}
                   />
                 )}
               </div>
@@ -375,6 +476,6 @@ export default async function DetallePage({
           </aside>
         </div>
       </main>
-    </PulsoShell>
+    </TodosGanamosShell>
   );
 }

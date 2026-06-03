@@ -54,10 +54,10 @@ export function HeaderAuth() {
   if (!user) {
     return (
       <>
-        <Link className="btn btn--ghost" href="/auth">
+        <Link className="btn btn--ghost header-auth__login" href="/auth">
           Iniciar sesion
         </Link>
-        <Link className="btn btn--primary" href="/auth?tab=registro">
+        <Link className="btn btn--primary header-auth__signup" href="/auth?tab=registro">
           Crear cuenta
         </Link>
       </>
@@ -69,13 +69,13 @@ export function HeaderAuth() {
 
   return (
     <>
-      <Link href="/cuenta" className={`avatar avatar--sm avatar--${color}`} title={name}>
+      <Link href="/cuenta" className={`avatar avatar--sm avatar--${color} header-auth__avatar`} title={name}>
         {initials(name)}
       </Link>
-      <Link className="btn btn--primary" href="/nuevo">
+      <Link className="btn btn--primary header-auth__publish" href="/nuevo">
         + Publicar
       </Link>
-      <form action={logout}>
+      <form action={logout} className="header-auth__logout">
         <button type="submit" className="btn btn--ghost btn--sm">
           Salir
         </button>

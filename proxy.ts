@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -29,8 +29,34 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && request.nextUrl.pathname === "/nuevo") {
-    return NextResponse.redirect(new URL("/auth?next=/nuevo", request.url));
+  const protectedPaths = ["/feed", "/detalle", "/picks", "/ranking", "/perfil", "/nuevo", "/guardados"];
+  const isProtectedPath = protectedPaths.some(
+    (path) =>
+      request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`)
+  );
+  if (!user && isProtectedPath) {
+    const next = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+    return NextResponse.redirect(
+      new URL(`/auth?next=${encodeURIComponent(next)}`, request.url)
+    );
+  }
+
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    if (!user) {
+      return NextResponse.redirect(
+        new URL(`/auth?next=${encodeURIComponent(request.nextUrl.pathname)}`, request.url)
+      );
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.role !== "admin") {
+      return NextResponse.redirect(new URL("/feed", request.url));
+    }
   }
 
   return supabaseResponse;

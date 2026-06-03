@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { PulsoShell } from "../components/pulso-shell";
+import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { FollowButton } from "../components/follow-button";
 
@@ -35,6 +35,7 @@ export default async function PerfilPage({
   const {
     data: { user: authUser },
   } = await supabase.auth.getUser();
+  if (!authUser) redirect("/auth?next=/perfil");
 
   // Determine whose profile to show
   let profileData = null;
@@ -65,58 +66,73 @@ export default async function PerfilPage({
 
   if (!profileData) {
     return (
-      <PulsoShell active="perfil">
+      <TodosGanamosShell active="perfil">
         <main className="container" style={{ padding: "64px 0", textAlign: "center" }}>
           <h2>Usuario no encontrado</h2>
           <Link href="/feed" className="btn btn--primary" style={{ marginTop: 16 }}>
             Volver al feed
           </Link>
         </main>
-      </PulsoShell>
+      </TodosGanamosShell>
     );
   }
-
-  const { data: pronosticos } = await supabase
-    .from("pronosticos")
-    .select("id, evento, mercado, cuota, estado, competicion, created_at, visibilidad, fecha_evento")
-    .eq("user_id", profileData.id)
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  const allProns = pronosticos ?? [];
-  const publicProns = isOwnProfile ? allProns : allProns.filter((p) => p.visibilidad === "publico");
-
-  const total = publicProns.length;
-  const acertadas = publicProns.filter((p) => p.estado === "acertada").length;
-  const falladas = publicProns.filter((p) => p.estado === "fallada").length;
-  const pendientes = total - acertadas - falladas;
-  const acierto = total > 0 ? Math.round((acertadas / total) * 100) : 0;
-
-  const activeTab = tab ?? "todas";
-  const filtered =
-    activeTab === "acertadas"
-      ? publicProns.filter((p) => p.estado === "acertada")
-      : activeTab === "falladas"
-      ? publicProns.filter((p) => p.estado === "fallada")
-      : activeTab === "pendientes"
-      ? publicProns.filter((p) => p.estado === "pendiente")
-      : publicProns;
 
   const username = profileData.username;
   const displayName = profileData.display_name ?? username;
   const color = avatarColor(username);
   const initials = username.slice(0, 2).toUpperCase();
   let isFollowing = false;
+  let hasRequested = false;
 
   if (authUser && !isOwnProfile) {
-    const { data } = await supabase
-      .from("seguimientos")
-      .select("follower_id")
-      .eq("follower_id", authUser.id)
-      .eq("following_id", profileData.id)
-      .maybeSingle();
-    isFollowing = !!data;
+    const [followingRes, requestRes] = await Promise.all([
+      supabase
+        .from("seguimientos")
+        .select("follower_id")
+        .eq("follower_id", authUser.id)
+        .eq("following_id", profileData.id)
+        .maybeSingle(),
+      supabase
+        .from("seguimiento_solicitudes")
+        .select("follower_id")
+        .eq("follower_id", authUser.id)
+        .eq("following_id", profileData.id)
+        .maybeSingle(),
+    ]);
+    isFollowing = !!followingRes.data;
+    hasRequested = !!requestRes.data;
   }
+
+  let pronosticosQuery = supabase
+    .from("pronosticos")
+    .select("id, evento, mercado, cuota, estado, competicion, created_at, visibilidad, fecha_evento")
+    .eq("user_id", profileData.id);
+
+  if (!isOwnProfile) {
+    pronosticosQuery = pronosticosQuery.neq("visibilidad", "borrador");
+  }
+
+  const { data: pronosticos } = await pronosticosQuery
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  const visibleProns = pronosticos ?? [];
+
+  const total = visibleProns.length;
+  const acertadas = visibleProns.filter((p) => p.estado === "acertada").length;
+  const falladas = visibleProns.filter((p) => p.estado === "fallada").length;
+  const pendientes = total - acertadas - falladas;
+  const acierto = total > 0 ? Math.round((acertadas / total) * 100) : 0;
+
+  const activeTab = tab ?? "todas";
+  const filtered =
+    activeTab === "acertadas"
+      ? visibleProns.filter((p) => p.estado === "acertada")
+      : activeTab === "falladas"
+      ? visibleProns.filter((p) => p.estado === "fallada")
+      : activeTab === "pendientes"
+      ? visibleProns.filter((p) => p.estado === "pendiente")
+      : visibleProns;
 
   function tabLink(t: string) {
     const params = new URLSearchParams();
@@ -127,7 +143,7 @@ export default async function PerfilPage({
   }
 
   return (
-    <PulsoShell active="perfil">
+    <TodosGanamosShell active="perfil">
       <main className="profile">
         <section className="profile__hero">
           <div className="container">
@@ -143,14 +159,20 @@ export default async function PerfilPage({
                     <FollowButton
                       targetUserId={profileData.id}
                       initialFollowing={isFollowing}
+                      initialRequested={hasRequested}
                     />
                   )}
                 </div>
                 <div className="profile__handle">
-                  @{username} · Miembro de Pulso
+                  @{username} - {profileData.is_private ? "Cuenta privada" : "Miembro de TodosGanamos"}
                 </div>
                 {profileData.bio && (
                   <p className="profile__bio">{profileData.bio}</p>
+                )}
+                {profileData.is_private && !isOwnProfile && !isFollowing && (
+                  <p className="profile__bio">
+                    Envia una solicitud para ver los pronosticos marcados como solo seguidores.
+                  </p>
                 )}
               </div>
             </div>
@@ -235,7 +257,7 @@ export default async function PerfilPage({
                         {timeAgo(p.created_at)}
                         {isOwnProfile && p.visibilidad !== "publico" && (
                           <span className="badge" style={{ marginLeft: 6 }}>
-                            {p.visibilidad === "borrador" ? "Borrador" : "Seguidores"}
+                            {p.visibilidad === "borrador" ? "Borrador" : "Solo seguidores"}
                           </span>
                         )}
                         {isOwnProfile && canSettlePronostico(p.fecha_evento, p.estado) && (
@@ -330,6 +352,6 @@ export default async function PerfilPage({
           </div>
         </section>
       </main>
-    </PulsoShell>
+    </TodosGanamosShell>
   );
 }

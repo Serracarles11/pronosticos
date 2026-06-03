@@ -1,5 +1,5 @@
 -- ============================================================
--- PULSO · Funciones y Triggers
+-- TodosGanamos · Funciones y Triggers
 -- Ejecuta DESPUES de 02_rls.sql
 -- ============================================================
 

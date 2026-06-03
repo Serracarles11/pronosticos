@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { login, signup } from "@/app/actions/auth";
+import { createClient } from "@/lib/supabase/client";
+import { normalizeAuthRedirect } from "@/lib/auth-redirect";
 
-export default function AuthPage() {
-  const [tab, setTab] = useState<"login" | "registro">("login");
-  const [error, setError] = useState<string | null>(null);
+function AuthContent() {
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<"login" | "registro">(() =>
+    searchParams.get("tab") === "registro" ? "registro" : "login"
+  );
+  const [error, setError] = useState<string | null>(() => searchParams.get("error"));
+  const next = normalizeAuthRedirect(searchParams.get("next"));
+  const [isGooglePending, setIsGooglePending] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   async function handleLogin(formData: FormData) {
@@ -25,6 +33,22 @@ export default function AuthPage() {
     });
   }
 
+  async function handleGoogleLogin() {
+    setError(null);
+    setIsGooglePending(true);
+    const supabase = createClient();
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo },
+    });
+
+    if (oauthError) {
+      setError(oauthError.message);
+      setIsGooglePending(false);
+    }
+  }
+
   return (
     <div className="auth-layout">
       {/* Panel izquierdo — branding */}
@@ -32,7 +56,7 @@ export default function AuthPage() {
         <Link href="/" className="logo auth-panel__logo">
           <span className="logo__glyph" />
           <span className="logo__word">
-            Pulso<span className="logo__dot">.</span>
+            TodosGanamos<span className="logo__dot">.</span>
           </span>
         </Link>
 
@@ -69,7 +93,7 @@ export default function AuthPage() {
         </ul>
 
         <div className="auth-panel__quote">
-          <p>&quot;Llevo 3 meses en Pulso y mi tasa de acierto ha subido un 12% solo por tener que argumentar cada pronostico.&quot;</p>
+          <p>&quot;Llevo 3 meses en TodosGanamos y mi tasa de acierto ha subido un 12% solo por tener que argumentar cada pronostico.&quot;</p>
           <div className="auth-panel__quote-author">
             <span className="avatar avatar--sm avatar--navy">LR</span>
             <div>
@@ -116,8 +140,23 @@ export default function AuthPage() {
             </div>
           )}
 
+          <button
+            className="btn btn--lg btn--flex auth-google"
+            disabled={isGooglePending || isPending}
+            onClick={handleGoogleLogin}
+            type="button"
+          >
+            {isGooglePending ? <span className="auth-spinner auth-spinner--dark" /> : (
+              <span className="auth-google__mark" aria-hidden="true">G</span>
+            )}
+            {isGooglePending ? "Conectando con Google..." : "Continuar con Google"}
+          </button>
+
+          <div className="auth-divider"><span>o usa tu correo</span></div>
+
           {tab === "login" ? (
             <form action={handleLogin} className="auth-form">
+              <input name="next" type="hidden" value={next} />
               <div className="field">
                 <label className="field__label" htmlFor="login-email">
                   Correo electronico
@@ -154,7 +193,7 @@ export default function AuthPage() {
                 {isPending ? (
                   <span className="auth-spinner" />
                 ) : null}
-                {isPending ? "Entrando..." : "Entrar a Pulso"}
+                {isPending ? "Entrando..." : "Entrar a TodosGanamos"}
               </button>
 
               <p className="auth-switch">
@@ -170,6 +209,7 @@ export default function AuthPage() {
             </form>
           ) : (
             <form action={handleSignup} className="auth-form">
+              <input name="next" type="hidden" value={next} />
               <div className="field">
                 <label className="field__label" htmlFor="reg-username">
                   Nombre de usuario
@@ -247,12 +287,20 @@ export default function AuthPage() {
 
           <p className="auth-legal">
             Al continuar aceptas los{" "}
-            <a href="#">Terminos de uso</a> y la{" "}
-            <a href="#">Politica de privacidad</a>.
-            Pulso es una comunidad sin dinero real.
+            <Link href="/terminos">Terminos de uso</Link> y la{" "}
+            <Link href="/privacidad">Politica de privacidad</Link>.
+            TodosGanamos es una comunidad sin dinero real.
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div className="auth-layout auth-layout--loading" />}>
+      <AuthContent />
+    </Suspense>
   );
 }

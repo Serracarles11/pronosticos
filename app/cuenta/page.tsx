@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { PulsoShell } from "../components/pulso-shell";
+import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { logout, updateAccount, updatePassword } from "@/app/actions/auth";
+import { acceptFollowRequest, rejectFollowRequest } from "@/app/actions/pronosticos";
+import { updateSocialLinks } from "@/app/actions/social";
+import { SOCIAL_PLATFORMS, type SocialLink } from "@/lib/social-links";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 
@@ -24,6 +27,7 @@ function formatDate(value?: string | null) {
 function statusMessage(ok?: string, error?: string) {
   if (error) return { type: "error" as const, text: error };
   if (ok === "perfil") return { type: "ok" as const, text: "Datos de cuenta actualizados." };
+  if (ok === "redes") return { type: "ok" as const, text: "Redes sociales actualizadas." };
   if (ok === "password") return { type: "ok" as const, text: "Contrasena actualizada." };
   return null;
 }
@@ -41,10 +45,10 @@ export default async function CuentaPage({
 
   if (!user) redirect("/auth");
 
-  const [{ data: profile }, { data: pronosticos }, savedRes] = await Promise.all([
+  const [{ data: profile }, { data: pronosticos }, savedRes, { data: pendingRequests }, socialLinksRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, username, display_name, bio, followers_count, following_count, created_at")
+      .select("*")
       .eq("id", user.id)
       .single(),
     supabase
@@ -55,6 +59,16 @@ export default async function CuentaPage({
       .from("guardados")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id),
+    supabase
+      .from("seguimiento_solicitudes")
+      .select("follower_id, created_at, profiles!seguimiento_solicitudes_follower_id_fkey(username, display_name)")
+      .eq("following_id", user.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("user_social_links")
+      .select("id, platform, url, is_public, sort_order")
+      .eq("user_id", user.id)
+      .order("sort_order", { ascending: true }),
   ]);
 
   if (!profile) {
@@ -66,9 +80,13 @@ export default async function CuentaPage({
   const color = avatarColor(username);
   const initials = username.slice(0, 2).toUpperCase();
   const message = statusMessage(ok, error);
+  const socialLinkMap = new Map(
+    ((socialLinksRes.data ?? []) as SocialLink[]).map((link) => [link.platform, link])
+  );
 
   const total = pronosticos?.length ?? 0;
   const publicos = pronosticos?.filter((p) => p.visibilidad === "publico").length ?? 0;
+  const soloSeguidores = pronosticos?.filter((p) => p.visibilidad === "seguidores").length ?? 0;
   const borradores = pronosticos?.filter((p) => p.visibilidad === "borrador").length ?? 0;
   const acertadas = pronosticos?.filter((p) => p.estado === "acertada").length ?? 0;
   const likesRecibidos =
@@ -77,8 +95,18 @@ export default async function CuentaPage({
       return sum + (likes?.[0]?.count ?? 0);
     }, 0) ?? 0;
 
+  async function acceptRequest(formData: FormData) {
+    "use server";
+    await acceptFollowRequest(String(formData.get("requester_id") ?? ""));
+  }
+
+  async function rejectRequest(formData: FormData) {
+    "use server";
+    await rejectFollowRequest(String(formData.get("requester_id") ?? ""));
+  }
+
   return (
-    <PulsoShell active="cuenta">
+    <TodosGanamosShell active="cuenta">
       <main className="account">
         <section className="account__hero">
           <div className="container account__hero-inner">
@@ -90,12 +118,17 @@ export default async function CuentaPage({
               </p>
             </div>
             <div className="account__hero-actions">
-              <Link className="btn btn--ghost" href={`/perfil?user=${username}`}>
+              <Link className="btn btn--ghost" href={`/u/${username}`}>
                 Ver perfil publico
               </Link>
               <Link className="btn btn--primary" href="/nuevo">
                 + Publicar
               </Link>
+              {profile.role === "admin" && (
+                <Link className="btn btn--ghost" href="/admin">
+                  Admin
+                </Link>
+              )}
             </div>
           </div>
         </section>
@@ -115,6 +148,10 @@ export default async function CuentaPage({
             <div className="stat">
               <div className="stat__label">Publicos</div>
               <div className="stat__value">{publicos}</div>
+            </div>
+            <div className="stat">
+              <div className="stat__label">Seguidores</div>
+              <div className="stat__value">{soloSeguidores}</div>
             </div>
             <div className="stat">
               <div className="stat__label">Borradores</div>
@@ -153,6 +190,50 @@ export default async function CuentaPage({
                   />
                 </div>
 
+                <div className="publish__grid-2">
+                  <div className="field">
+                    <label className="field__label" htmlFor="country_code">
+                      Pais
+                    </label>
+                    <input
+                      className="input"
+                      defaultValue={profile.country_code ?? ""}
+                      id="country_code"
+                      maxLength={2}
+                      name="country_code"
+                      placeholder="ES"
+                    />
+                  </div>
+                  <div className="field">
+                    <label className="field__label" htmlFor="favorite_competitions">
+                      Competiciones favoritas
+                    </label>
+                    <input
+                      className="input"
+                      defaultValue={(profile.favorite_competitions ?? []).join(", ")}
+                      id="favorite_competitions"
+                      name="favorite_competitions"
+                      placeholder="LaLiga, Champions League"
+                    />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label className="field__label" htmlFor="favorite_bookmakers">
+                    Bookmakers favoritos
+                  </label>
+                  <input
+                    className="input"
+                    defaultValue={(profile.favorite_bookmakers ?? []).join(", ")}
+                    id="favorite_bookmakers"
+                    name="favorite_bookmakers"
+                    placeholder="Bet365, Winamax"
+                  />
+                  <div className="field__hint">
+                    Solo se muestran como preferencias informativas. TodosGanamos no permite apostar.
+                  </div>
+                </div>
+
                 <div className="field">
                   <label className="field__label" htmlFor="username">
                     Usuario
@@ -189,10 +270,70 @@ export default async function CuentaPage({
                   />
                 </div>
 
+                <label className="check-field" htmlFor="is_private">
+                  <input
+                    id="is_private"
+                    name="is_private"
+                    type="checkbox"
+                    defaultChecked={profile.is_private}
+                  />
+                  <span>
+                    <strong>Cuenta privada</strong>
+                    <small>Los nuevos seguidores tendran que enviarte una solicitud.</small>
+                  </span>
+                </label>
+
                 <button className="btn btn--primary" type="submit">
                   Guardar datos
                 </button>
               </form>
+
+              <div className="account-panel__divider" />
+
+              <div className="account-panel__head">
+                <div>
+                  <h2>Redes sociales</h2>
+                  <p>Añade enlaces HTTPS y decide cuales aparecen en tu perfil publico.</p>
+                </div>
+              </div>
+
+              {socialLinksRes.error ? (
+                <div className="account-alert account-alert--info">
+                  Las redes sociales estaran disponibles al aplicar la migracion social pendiente.
+                </div>
+              ) : <form action={updateSocialLinks} className="account-form social-settings">
+                {SOCIAL_PLATFORMS.map((platform) => {
+                  const link = socialLinkMap.get(platform.id);
+                  return (
+                    <div className="social-settings__row" key={platform.id}>
+                      <div className="field">
+                        <label className="field__label" htmlFor={`social_${platform.id}`}>
+                          {platform.label}
+                        </label>
+                        <input
+                          className="input"
+                          defaultValue={link?.url ?? ""}
+                          id={`social_${platform.id}`}
+                          name={`social_${platform.id}`}
+                          placeholder="https://..."
+                          type="url"
+                        />
+                      </div>
+                      <label className="check-field social-settings__visibility">
+                        <input
+                          defaultChecked={link?.is_public ?? true}
+                          name={`social_${platform.id}_public`}
+                          type="checkbox"
+                        />
+                        <span><strong>Publica</strong></span>
+                      </label>
+                    </div>
+                  );
+                })}
+                <button className="btn btn--primary" type="submit">
+                  Guardar redes
+                </button>
+              </form>}
             </section>
 
             <aside className="account__side">
@@ -273,12 +414,90 @@ export default async function CuentaPage({
                   <Link className="btn btn--ghost btn--flex" href="/perfil">
                     Mis pronosticos
                   </Link>
+                  <Link className="btn btn--ghost btn--flex" href="/guardados">
+                    Guardados
+                  </Link>
                   <Link className="btn btn--ghost btn--flex" href="/feed">
                     Feed publico
                   </Link>
                   <span className="badge">Guardados {savedRes.count ?? 0}</span>
                   <span className="badge">Seguidores {profile.followers_count ?? 0}</span>
                   <span className="badge">Siguiendo {profile.following_count ?? 0}</span>
+                </div>
+              </section>
+
+              <section className="card card__pad account-panel">
+                <div className="account-panel__head">
+                  <div>
+                    <h2>Beta launch</h2>
+                    <p>Estado rapido de lo necesario para probar con usuarios.</p>
+                  </div>
+                </div>
+                <div className="beta-checklist">
+                  <span className="is-done">Perfil completo</span>
+                  <span className={total > 0 ? "is-done" : ""}>Primer pronostico</span>
+                  <span className={profile.is_private ? "is-done" : ""}>Privacidad configurada</span>
+                  <span className="is-done">Feedback activo</span>
+                </div>
+              </section>
+
+              <section className="card card__pad account-panel">
+                <div className="account-panel__head">
+                  <div>
+                    <h2>Solicitudes</h2>
+                    <p>Aprueba quien puede seguir una cuenta privada.</p>
+                  </div>
+                </div>
+
+                <div className="request-list">
+                  {(pendingRequests ?? []).length === 0 ? (
+                    <p className="muted" style={{ margin: 0 }}>
+                      No tienes solicitudes pendientes.
+                    </p>
+                  ) : (
+                    (pendingRequests ?? []).map((request) => {
+                      const requesterData = request.profiles as unknown as
+                        | {
+                            username: string;
+                            display_name: string | null;
+                          }
+                        | Array<{
+                            username: string;
+                            display_name: string | null;
+                          }>
+                        | null;
+                      const requester = Array.isArray(requesterData)
+                        ? requesterData[0] ?? null
+                        : requesterData;
+                      const requesterProfile = requester as {
+                        username: string;
+                        display_name: string | null;
+                      } | null;
+                      const requesterName = requesterProfile?.username ?? "usuario";
+                      return (
+                        <div className="request-row" key={request.follower_id}>
+                          <div>
+                            <strong>@{requesterName}</strong>
+                            <span>{requesterProfile?.display_name ?? requesterName}</span>
+                          </div>
+                          <div className="request-row__actions">
+                            <form action={acceptRequest}>
+                              <input type="hidden" name="requester_id" value={request.follower_id} />
+                              <button className="btn btn--primary" type="submit">
+                                Aceptar
+                              </button>
+                            </form>
+                            <form action={rejectRequest}>
+                              <input type="hidden" name="requester_id" value={request.follower_id} />
+                              <button className="btn btn--ghost" type="submit">
+                                Rechazar
+                              </button>
+                            </form>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </section>
 
@@ -291,6 +510,6 @@ export default async function CuentaPage({
           </div>
         </section>
       </main>
-    </PulsoShell>
+    </TodosGanamosShell>
   );
 }

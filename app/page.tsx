@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PulsoShell } from "./components/pulso-shell";
+import { TodosGanamosShell } from "./components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
@@ -11,20 +11,27 @@ function avatarColor(username: string) {
 
 export default async function HomePage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Featured predictions
-  const { data: featured } = await supabase
-    .from("pronosticos")
-    .select("id, evento, mercado, cuota, confianza, estado, profiles!pronosticos_user_id_fkey(username)")
-    .eq("visibilidad", "publico")
-    .order("created_at", { ascending: false })
-    .limit(3);
+  const featuredRes = user
+    ? await supabase
+        .from("pronosticos")
+        .select("id, evento, mercado, cuota, confianza, estado, profiles!pronosticos_user_id_fkey(username)")
+        .eq("visibilidad", "publico")
+        .order("created_at", { ascending: false })
+        .limit(3)
+    : { data: [] };
+  const featured = featuredRes.data;
 
-  // Top tipsters
-  const { data: allProns } = await supabase
-    .from("pronosticos")
-    .select("user_id, estado, profiles!pronosticos_user_id_fkey(username, display_name)")
-    .eq("visibilidad", "publico");
+  const allPronsRes = user
+    ? await supabase
+        .from("pronosticos")
+        .select("user_id, estado, profiles!pronosticos_user_id_fkey(username, display_name)")
+        .eq("visibilidad", "publico")
+    : { data: [] };
+  const allProns = allPronsRes.data;
 
   type TipsterMap = { username: string; displayName: string; total: number; acertadas: number };
   const byUser = new Map<string, TipsterMap>();
@@ -47,7 +54,7 @@ export default async function HomePage() {
     .slice(0, 3);
 
   return (
-    <PulsoShell active="landing">
+    <TodosGanamosShell active="landing">
       <section className="hero">
         <div className="container hero__grid">
           <div className="hero__copy">
@@ -65,9 +72,13 @@ export default async function HomePage() {
               Los usuarios votan, comentan y siguen a los tipsters que aciertan.
               Sin dinero real: solo reputacion, estadisticas y debate transparente.
             </p>
+            <div className="responsible-note">
+              <strong>+18</strong>
+              <span>Contenido para mayores de edad. TodosGanamos no acepta apuestas ni depositos.</span>
+            </div>
             <div className="hero__cta">
-              <Link className="btn btn--primary btn--lg" href="/feed">
-                Explorar pronosticos →
+              <Link className="btn btn--primary btn--lg" href={user ? "/feed" : "/auth?next=/feed"}>
+                {user ? "Explorar pronosticos" : "Crear cuenta para explorar"} →
               </Link>
               <Link className="btn btn--ghost btn--lg" href="/auth?tab=registro">
                 Crear cuenta gratis
@@ -76,53 +87,11 @@ export default async function HomePage() {
           </div>
 
           <div className="hero__preview" aria-hidden="true">
-            <article className="card hero__card-back">
-              <div className="pred__author">
-                <span className="avatar avatar--sm avatar--sky">AP</span>
-                <strong>AndreaPerez</strong>
-              </div>
-              <div className="hero__placeholder" />
-            </article>
-            <article className="card card--featured hero__card-front pred">
-              <header className="pred__head">
-                <div className="pred__author">
-                  <span className="avatar avatar--md avatar--navy">LR</span>
-                  <div className="pred__author-meta">
-                    <span className="pred__user">
-                      LauraRivas <span className="badge badge--gold">Top</span>
-                    </span>
-                    <span className="pred__sub">Hace 2 h · LaLiga</span>
-                  </div>
-                </div>
-                <span className="pill pill--ok">
-                  <span className="pill__dot" />
-                  Acertada
-                </span>
-              </header>
-              <h3 className="pred__title">Real Sociedad - Villarreal</h3>
-              <div className="pred__strip">
-                <div className="pred__cell">
-                  <div className="pred__cell-label">Pronostico</div>
-                  <div className="pred__cell-value">BTTS · Si</div>
-                </div>
-                <div className="pred__cell pred__cell--accent">
-                  <div className="pred__cell-label">Cuota</div>
-                  <div className="pred__cell-value mono">1.82</div>
-                </div>
-                <div className="pred__cell">
-                  <div className="pred__cell-label">Confianza</div>
-                  <div className="pred__confidence">
-                    <span className="is-on" /><span className="is-on" /><span className="is-on" /><span className="is-on" /><span />
-                  </div>
-                </div>
-              </div>
-              <footer className="pred__foot">
-                <div className="pred__actions">
-                  <button>♥ 248</button>
-                  <button>💬 32</button>
-                </div>
-                <span className="mono muted">+1.82u</span>
-              </footer>
+            <article className="card card--featured hero__card-front member-gate member-gate--hero">
+              <span className="member-gate__icon">+</span>
+              <span className="pill pill--blue">Acceso para miembros</span>
+              <h3>Los pronosticos se consultan con una cuenta TodosGanamos.</h3>
+              <p>Registrate gratis para ver picks, cuotas informativas, analisis y debate de la comunidad.</p>
             </article>
           </div>
         </div>
@@ -145,7 +114,7 @@ export default async function HomePage() {
                     <article key={p.id} className={`card pred ${i === 1 ? "card--featured" : ""}`}>
                       <header className="pred__head">
                         <div className="pred__author">
-                          <Link href={`/perfil?user=${username}`} className={`avatar avatar--sm avatar--${color}`}>
+                          <Link href={`/u/${username}`} className={`avatar avatar--sm avatar--${color}`}>
                             {initials}
                           </Link>
                           <div className="pred__author-meta">
@@ -177,33 +146,14 @@ export default async function HomePage() {
                     </article>
                   );
                 })
-              : /* Fallback estático si aún no hay datos */
-                [
-                  ["JM", "avatar--blue", "JuanMartin_22", "NBA · Playoffs", "Celtics - Knicks · Mas 219.5", "1.95", "3", "ok"],
-                  ["LR", "avatar--navy", "LauraRivas", "LaLiga · J33", "Real Sociedad - Villarreal · BTTS Si", "1.82", "4", "warn"],
-                  ["DC", "avatar--steel", "DiegoCampos", "Tenis · Roland Garros", "Alcaraz - Zverev · Carlos gana", "1.74", "5", "ok"],
-                ].map(([initials, tone, name, sub, title, cuota, conf, estado]) => (
-                  <article key={name} className={`card pred ${name === "LauraRivas" ? "card--featured" : ""}`}>
-                    <header className="pred__head">
-                      <div className="pred__author">
-                        <span className={`avatar avatar--sm ${tone}`}>{initials}</span>
-                        <div className="pred__author-meta">
-                          <span className="pred__user">{name}</span>
-                          <span className="pred__sub">{sub}</span>
-                        </div>
-                      </div>
-                      <span className={`pill pill--${estado}`}>
-                        <span className="pill__dot" />
-                        {estado === "ok" ? "Acertada" : "Pendiente"}
-                      </span>
-                    </header>
-                    <h3 className="pred__title">{title}</h3>
-                    <div className="cluster">
-                      <span className="badge">Cuota <span className="mono">{cuota}</span></span>
-                      <span className="badge">Confianza {conf}/5</span>
-                    </div>
-                  </article>
-                ))}
+              : <article className="card card__pad member-gate">
+                  <span className="member-gate__icon">+</span>
+                  <div>
+                    <h3>{user ? "Todavia no hay picks destacados" : "Crea una cuenta para consultar pronosticos"}</h3>
+                    <p>{user ? "Publica el primero desde tu cuenta." : "El feed, las cuotas informativas y los analisis estan disponibles solo para miembros."}</p>
+                  </div>
+                  {!user && <Link className="btn btn--primary" href="/auth?tab=registro&next=/feed">Registrarme gratis</Link>}
+                </article>}
           </div>
         </div>
       </section>
@@ -222,7 +172,7 @@ export default async function HomePage() {
                 return (
                   <article className="card rank-card" key={u.username}>
                     <span className="rank-card__pos mono">{i + 1}</span>
-                    <Link href={`/perfil?user=${u.username}`} className={`avatar avatar--lg avatar--${color}`}>
+                    <Link href={`/u/${u.username}`} className={`avatar avatar--lg avatar--${color}`}>
                       {initials}
                     </Link>
                     <div className="rank-card__body">
@@ -244,7 +194,7 @@ export default async function HomePage() {
       <section className="section" id="como-funciona">
         <div className="container">
           <div className="section__head">
-            <h2>Asi funciona Pulso</h2>
+            <h2>Asi funciona TodosGanamos</h2>
             <span className="mono muted section__eyebrow">3 pasos</span>
           </div>
           <div className="grid grid--3">
@@ -266,11 +216,11 @@ export default async function HomePage() {
           </div>
           <div style={{ textAlign: "center", marginTop: 32 }}>
             <Link href="/auth?tab=registro" className="btn btn--primary btn--lg">
-              Unirme a Pulso →
+              Unirme a TodosGanamos →
             </Link>
           </div>
         </div>
       </section>
-    </PulsoShell>
+    </TodosGanamosShell>
   );
 }

@@ -3,12 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeAuthRedirect } from "@/lib/auth-redirect";
+import { checkBlockedWords, checkRepeatedLinks, logAntiSpamEvent, recordLinkUsage } from "@/lib/anti-spam/server";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const next = normalizeAuthRedirect(String(formData.get("next") ?? ""));
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -16,7 +19,7 @@ export async function login(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect("/feed");
+  redirect(next);
 }
 
 export async function signup(formData: FormData) {
@@ -25,33 +28,28 @@ export async function signup(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const username = (formData.get("username") as string).toLowerCase().trim();
+  const next = normalizeAuthRedirect(String(formData.get("next") ?? ""));
 
   if (!username || username.length < 3) {
     return { error: "El nombre de usuario debe tener al menos 3 caracteres." };
   }
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        username,
+        display_name: username,
+      },
+    },
+  });
 
   if (error) {
     return { error: error.message };
   }
 
-  if (data.user) {
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      username,
-      display_name: username,
-    });
-
-    if (profileError) {
-      if (profileError.code === "23505") {
-        return { error: "Ese nombre de usuario ya esta en uso." };
-      }
-      return { error: profileError.message };
-    }
-  }
-
-  redirect("/feed");
+  redirect(next);
 }
 
 export async function logout() {
@@ -62,6 +60,14 @@ export async function logout() {
 
 function accountError(message: string) {
   redirect(`/cuenta?error=${encodeURIComponent(message)}`);
+}
+
+function isMissingOptionalSchema(error: { code?: string; message?: string } | null) {
+  return (
+    error?.code === "PGRST204" ||
+    error?.code === "42703" ||
+    error?.message?.toLowerCase().includes("schema cache") === true
+  );
 }
 
 export async function updateAccount(formData: FormData) {
@@ -76,6 +82,18 @@ export async function updateAccount(formData: FormData) {
   const username = String(formData.get("username") ?? "").toLowerCase().trim();
   const displayName = String(formData.get("display_name") ?? "").trim();
   const bio = String(formData.get("bio") ?? "").trim();
+  const countryCode = String(formData.get("country_code") ?? "").trim().toUpperCase();
+  const favoriteCompetitions = String(formData.get("favorite_competitions") ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+  const favoriteBookmakers = String(formData.get("favorite_bookmakers") ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+  const isPrivate = formData.get("is_private") === "on";
 
   if (!/^[a-z0-9_]{3,24}$/.test(username)) {
     accountError("El usuario debe tener entre 3 y 24 caracteres: letras, numeros o guion bajo.");
@@ -89,14 +107,50 @@ export async function updateAccount(formData: FormData) {
     accountError("La bio no puede superar 180 caracteres.");
   }
 
-  const { error } = await supabase
+  if (countryCode && !/^[A-Z]{2}$/.test(countryCode)) {
+    accountError("Usa un codigo de pais de dos letras, por ejemplo ES.");
+  }
+
+  const linkCheck = await checkRepeatedLinks(supabase, user.id, bio);
+  if (!linkCheck.allowed) {
+    accountError(linkCheck.error);
+  }
+
+  const profileWords = await checkBlockedWords(supabase, `${displayName} ${bio}`);
+  if (profileWords.highestSeverity) {
+    await logAntiSpamEvent(supabase, {
+      userId: user.id,
+      eventType: "blocked_word",
+      targetType: "profile",
+      severity: profileWords.highestSeverity,
+      reason: "profile text matched blocked word",
+      metadata: { words: profileWords.matches.map((word) => word.word) },
+    });
+  }
+  if (profileWords.highestSeverity === "high") {
+    accountError("El perfil incluye palabras bloqueadas.");
+  }
+
+  const baseUpdates = {
+    username,
+    display_name: displayName || username,
+    bio: bio || null,
+    is_private: isPrivate,
+  };
+
+  let { error } = await supabase
     .from("profiles")
     .update({
-      username,
-      display_name: displayName || username,
-      bio: bio || null,
+      ...baseUpdates,
+      country_code: countryCode || null,
+      favorite_competitions: favoriteCompetitions,
+      favorite_bookmakers: favoriteBookmakers,
     })
     .eq("id", user.id);
+
+  if (isMissingOptionalSchema(error)) {
+    ({ error } = await supabase.from("profiles").update(baseUpdates).eq("id", user.id));
+  }
 
   if (error) {
     if (error.code === "23505") {
@@ -105,8 +159,11 @@ export async function updateAccount(formData: FormData) {
     accountError(error.message);
   }
 
+  await recordLinkUsage(supabase, user.id, linkCheck.links, "profile", user.id);
+
   revalidatePath("/cuenta");
   revalidatePath("/perfil");
+  revalidatePath(`/u/${username}`);
   redirect("/cuenta?ok=perfil");
 }
 

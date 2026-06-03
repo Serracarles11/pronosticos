@@ -1,5 +1,5 @@
 -- ============================================================
--- PULSO · Row Level Security
+-- TodosGanamos · Row Level Security
 -- Ejecuta DESPUES de 01_schema.sql
 -- ============================================================
 

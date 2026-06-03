@@ -1,5 +1,5 @@
 -- ============================================================
--- PULSO - Pronosticos publicos y busqueda
+-- TodosGanamos - Pronosticos publicos y busqueda
 -- Ejecutar en Supabase SQL Editor DESPUES de 05_tablas_espanol.sql
 -- ============================================================
 
