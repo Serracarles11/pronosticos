@@ -2427,6 +2427,7 @@ button {
 }
 
 .match-picker {
+  min-width: 0;
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -2453,6 +2454,10 @@ button {
   grid-template-columns: minmax(0, 1fr) 150px 170px;
 }
 
+.match-picker__filters > * {
+  min-width: 0;
+}
+
 .match-picker__selected {
   flex-direction: column;
   gap: 2px;
@@ -2477,6 +2482,7 @@ button {
 
 .match-option {
   width: 100%;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
@@ -2494,6 +2500,7 @@ button {
 }
 
 .match-option__teams {
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -2501,6 +2508,8 @@ button {
 }
 
 .match-option__teams strong {
+  flex: 1 1 0;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2520,7 +2529,13 @@ button {
 }
 
 .match-option__meta {
-  flex-shrink: 0;
+  flex: 0 1 min(360px, 46%);
+  min-width: 0;
+  max-width: 46%;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .publish-category-presets {
@@ -3319,6 +3334,29 @@ button {
 .podium__card {
   padding: 22px;
   gap: 16px;
+}
+
+.podium__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.podium__stats {
+  flex: 0 0 auto;
+  margin-left: auto;
+  text-align: right;
+}
+
+.podium__name {
+  min-width: 0;
+}
+
+.podium__name a,
+.podium__meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .podium__card--gold {
@@ -4217,6 +4255,41 @@ button {
     width: 100%;
   }
 
+  .match-picker {
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  .match-picker__head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .match-picker__head .btn {
+    width: 100%;
+  }
+
+  .match-picker__filters {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .match-option {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .match-option__teams {
+    width: 100%;
+  }
+
+  .match-option__meta {
+    flex-basis: auto;
+    max-width: 100%;
+    text-align: left;
+  }
+
   .picks-header {
     align-items: flex-start;
     flex-direction: column;
@@ -4333,6 +4406,39 @@ button {
 
   .podium__card {
     padding: 15px;
+  }
+
+  .podium__card {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 4px;
+  }
+
+  .podium__pos {
+    grid-row: 1 / span 2;
+    min-width: 34px;
+    font-size: 32px;
+  }
+
+  .podium__card .avatar {
+    grid-row: 1 / span 2;
+  }
+
+  .podium__body,
+  .podium__stats {
+    grid-column: 3;
+  }
+
+  .podium__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    justify-content: flex-start;
+    margin-left: 0;
+    min-width: 0;
+    text-align: left;
   }
 
   .rank-table__row {
