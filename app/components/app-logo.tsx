@@ -3,12 +3,13 @@ import Link from "next/link";
 
 type AppLogoProps = {
   className?: string;
+  href?: string;
   preload?: boolean;
 };
 
-export function AppLogo({ className = "", preload = false }: AppLogoProps) {
+export function AppLogo({ className = "", href = "/", preload = false }: AppLogoProps) {
   return (
-    <Link className={`logo ${className}`.trim()} href="/" aria-label="TodosGanamos">
+    <Link className={`logo ${className}`.trim()} href={href} aria-label="TodosGanamos">
       <span className="logo__glyph" aria-hidden="true">
         <Image
           alt=""

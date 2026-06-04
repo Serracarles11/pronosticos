@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeAuthRedirect } from "@/lib/auth-redirect";
+import { getRequestSiteOrigin } from "@/lib/site-url";
 import { checkBlockedWords, checkRepeatedLinks, logAntiSpamEvent, recordLinkUsage } from "@/lib/anti-spam/server";
 
 export async function login(formData: FormData) {
@@ -53,29 +54,10 @@ export async function signup(formData: FormData) {
   redirect(next);
 }
 
-function getSiteOrigin(headersList: Headers) {
-  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (configuredSiteUrl?.startsWith("https://") || configuredSiteUrl?.startsWith("http://")) {
-    return configuredSiteUrl.replace(/\/+$/, "");
-  }
-
-  const vercelUrl =
-    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
-    process.env.VERCEL_BRANCH_URL ??
-    process.env.VERCEL_URL;
-  if (vercelUrl) {
-    return `https://${vercelUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
-  }
-
-  const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
-  const proto = headersList.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
-  return host ? `${proto}://${host}` : "http://localhost:3000";
-}
-
 export async function loginWithGoogle(formData: FormData) {
   const supabase = await createClient();
   const next = normalizeAuthRedirect(String(formData.get("next") ?? ""));
-  const origin = getSiteOrigin(await headers());
+  const origin = getRequestSiteOrigin(await headers());
   const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({

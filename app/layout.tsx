@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Manrope } from "next/font/google";
 import { AgeGate } from "./components/age-gate";
+import { getPublicSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -14,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(getPublicSiteOrigin()),
   title: {
     default: "TodosGanamos - Pronosticos deportivos sin dinero real",
     template: "%s - TodosGanamos",

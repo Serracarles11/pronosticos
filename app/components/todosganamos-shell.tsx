@@ -81,11 +81,13 @@ export function TodosGanamosShell({
   hideFooter = false,
   children,
 }: TodosGanamosShellProps) {
+  const logoHref = active === "landing" ? "/" : "/feed";
+
   return (
     <>
       <header className="header">
         <div className="header__inner">
-          <AppLogo preload />
+          <AppLogo href={logoHref} preload />
           <HeaderSearch initialValue={searchValue} key={searchValue} />
           <nav className="nav">
             <NavLink href="/feed" active={active === "feed"}>
@@ -121,7 +123,7 @@ export function TodosGanamosShell({
       <MobileBottomNav active={active} />
       {!hideFooter && <footer className="footer">
         <div className="footer__inner">
-          <AppLogo />
+          <AppLogo href={logoHref} />
           <nav className="footer__nav">
             <Link href="/feed">Feed</Link>
             <Link href="/partidos">Partidos</Link>

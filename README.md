@@ -34,7 +34,7 @@ Variables de entorno necesarias:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
-NEXT_PUBLIC_SITE_URL=https://tu-dominio.vercel.app
+NEXT_PUBLIC_SITE_URL=https://todosganamos.es
 SUPABASE_SERVICE_ROLE_KEY=solo-en-servidor-para-cron
 CRON_SECRET=secreto-para-cron
 FOOTBALL_DATA_API_KEY=tu-key-football-data
@@ -47,8 +47,9 @@ Antes de publicar:
 
 - Ejecuta todas las migraciones necesarias de `supabase/` en orden, incluyendo `16_football_data_matches.sql` si usas partidos reales.
 - En Supabase Authentication, anade estas URLs en Redirect URLs:
-  - `https://tu-dominio.vercel.app/auth/callback`
-  - `https://tu-dominio.com/auth/callback` si usas dominio propio.
+  - `https://todosganamos.es/auth/callback`
+  - `https://www.todosganamos.es/auth/callback` si usas tambien `www`.
+  - `http://localhost:3000/auth/callback` solo para desarrollo local.
 - Si activas Google OAuth, en Google Cloud usa como redirect autorizado el callback de Supabase: `https://your-project.supabase.co/auth/v1/callback`.
 - En produccion, usa siempre un dominio HTTPS en `NEXT_PUBLIC_SITE_URL`.
 - El cron diario de Vercel llama a `/api/internal/cron/sync-football-matches` a las `06:00 UTC`; Vercel enviara `CRON_SECRET` como `Authorization: Bearer ...`.
@@ -90,9 +91,9 @@ https://your-project.supabase.co/auth/v1/callback
 En Supabase, anade las URLs permitidas de redireccion:
 
 ```text
+https://todosganamos.es/auth/callback
+https://www.todosganamos.es/auth/callback
 http://localhost:3000/auth/callback
-https://tu-dominio.vercel.app/auth/callback
-https://tu-dominio.com/auth/callback
 ```
 
 La migracion `13_auth_required_google.sql` crea perfiles para usuarios OAuth y evita que visitantes anonimos lean pronosticos mediante la API publica.
