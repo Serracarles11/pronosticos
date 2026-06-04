@@ -2,10 +2,12 @@
 
 ## Required before public launch
 
-- Run Supabase SQL migrations in order through `supabase/14_pronostico_copy_categories.sql`.
+- Run Supabase SQL migrations in order through the latest file in `supabase/`.
 - Enable Google in Supabase Auth and allow `/auth/callback` for local and production domains.
 - Set production environment variables from `.env.example`.
 - Set `NEXT_PUBLIC_SITE_URL` to the final HTTPS domain.
+- Set `SUPABASE_SERVICE_ROLE_KEY` without any `NEXT_PUBLIC_` prefix.
+- Set `CRON_SECRET` so the Vercel cron can sync football matches securely.
 - Create and verify the `capturas-pronosticos` storage bucket.
 - Promote at least one account to admin:
 

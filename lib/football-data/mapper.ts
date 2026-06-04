@@ -1,0 +1,73 @@
+import type {
+  FootballDataRawMatch,
+  FootballDataStatus,
+  InternalMatchStatus,
+  NormalizedFootballMatch,
+} from "./types";
+
+function optionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function optionalNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function optionalIso(value: unknown) {
+  if (typeof value !== "string" || !value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+export function mapFootballDataStatus(status?: FootballDataStatus | null): InternalMatchStatus {
+  if (status === "IN_PLAY" || status === "PAUSED") return "live";
+  if (status === "FINISHED") return "finished";
+  if (status === "POSTPONED" || status === "SUSPENDED") return "postponed";
+  if (status === "CANCELED") return "cancelled";
+  return "scheduled";
+}
+
+export function normalizeFootballDataMatch(rawMatch: FootballDataRawMatch): NormalizedFootballMatch {
+  const externalId = rawMatch.id == null ? "" : String(rawMatch.id);
+  const kickoffAt = optionalIso(rawMatch.utcDate);
+  const homeTeamName = optionalString(rawMatch.homeTeam?.name);
+  const awayTeamName = optionalString(rawMatch.awayTeam?.name);
+
+  if (!externalId || !kickoffAt || !homeTeamName || !awayTeamName) {
+    throw new Error("Partido football-data incompleto.");
+  }
+
+  return {
+    external_id: externalId,
+    provider: "football-data.org",
+    competition_code: optionalString(rawMatch.competition?.code),
+    competition_name: optionalString(rawMatch.competition?.name),
+    competition_emblem: optionalString(rawMatch.competition?.emblem),
+    home_team_id: rawMatch.homeTeam?.id == null ? null : String(rawMatch.homeTeam.id),
+    home_team_name: homeTeamName,
+    home_team_short_name: optionalString(rawMatch.homeTeam?.shortName ?? rawMatch.homeTeam?.tla),
+    home_team_crest: optionalString(rawMatch.homeTeam?.crest),
+    away_team_id: rawMatch.awayTeam?.id == null ? null : String(rawMatch.awayTeam.id),
+    away_team_name: awayTeamName,
+    away_team_short_name: optionalString(rawMatch.awayTeam?.shortName ?? rawMatch.awayTeam?.tla),
+    away_team_crest: optionalString(rawMatch.awayTeam?.crest),
+    kickoff_at: kickoffAt,
+    status: mapFootballDataStatus(rawMatch.status),
+    matchday: optionalNumber(rawMatch.matchday),
+    stage: optionalString(rawMatch.stage),
+    group_name: optionalString(rawMatch.group),
+    home_score: optionalNumber(rawMatch.score?.fullTime?.home),
+    away_score: optionalNumber(rawMatch.score?.fullTime?.away),
+    winner: optionalString(rawMatch.score?.winner),
+    last_updated_provider: optionalIso(rawMatch.lastUpdated),
+    raw_json: rawMatch,
+  };
+}
+
+export function dedupeFootballMatches(matches: NormalizedFootballMatch[]) {
+  const byExternalId = new Map<string, NormalizedFootballMatch>();
+  for (const match of matches) {
+    byExternalId.set(match.external_id, match);
+  }
+  return Array.from(byExternalId.values());
+}

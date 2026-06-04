@@ -59,8 +59,16 @@ function getSiteOrigin(headersList: Headers) {
     return configuredSiteUrl.replace(/\/+$/, "");
   }
 
+  const vercelUrl =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ??
+    process.env.VERCEL_BRANCH_URL ??
+    process.env.VERCEL_URL;
+  if (vercelUrl) {
+    return `https://${vercelUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  }
+
   const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
-  const proto = headersList.get("x-forwarded-proto") ?? "http";
+  const proto = headersList.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
   return host ? `${proto}://${host}` : "http://localhost:3000";
 }
 

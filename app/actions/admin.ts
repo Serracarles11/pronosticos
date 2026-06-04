@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getDefaultFootballSyncRange, syncFootballMatches } from "@/lib/football-data/sync";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -151,4 +152,13 @@ export async function deactivateBlockedWord(formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/admin");
+}
+
+export async function syncFootballMatchesNow() {
+  const supabase = await requireAdmin();
+  const range = getDefaultFootballSyncRange();
+  await syncFootballMatches({ ...range, supabase });
+  revalidatePath("/admin");
+  revalidatePath("/partidos");
+  revalidatePath("/nuevo");
 }

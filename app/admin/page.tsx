@@ -9,6 +9,7 @@ import {
   updateModerationStatus,
   updateReportStatus,
   updateSocialReportStatus,
+  syncFootballMatchesNow,
   updateUserShadowban,
 } from "../actions/admin";
 
@@ -46,6 +47,9 @@ export default async function AdminPage() {
     { data: pendingComments },
     { data: shadowbannedUsers },
     { data: blockedWords },
+    footballMatchesCountRes,
+    latestFootballSyncRes,
+    upcomingFootballMatchesRes,
   ] = await Promise.all([
     supabase
       .from("reportes_pronosticos")
@@ -94,7 +98,27 @@ export default async function AdminPage() {
       .select("id, word, severity, is_active, created_at")
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("football_matches")
+      .select("id", { count: "exact", head: true }),
+    supabase
+      .from("football_data_sync_logs")
+      .select("status, fetched, inserted, updated, skipped, errors_json, finished_at, created_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("football_matches")
+      .select("id, home_team_name, away_team_name, competition_name, kickoff_at, status")
+      .gte("kickoff_at", new Date().toISOString())
+      .order("kickoff_at", { ascending: true })
+      .limit(6),
   ]);
+  const latestFootballSync = latestFootballSyncRes.data;
+  const upcomingFootballMatches = upcomingFootballMatchesRes.data ?? [];
+  const footballSyncErrors = Array.isArray(latestFootballSync?.errors_json)
+    ? latestFootballSync.errors_json
+    : [];
 
   return (
     <TodosGanamosShell active="cuenta">
@@ -111,6 +135,71 @@ export default async function AdminPage() {
         </header>
 
         <section className="admin-grid">
+          <div className="card card__pad admin-panel">
+            <div className="account-panel__head">
+              <h2>Partidos</h2>
+              <p>Sync de football-data.org y partidos guardados.</p>
+            </div>
+            <div className="admin-list">
+              <article className="admin-item">
+                <div className="admin-item__head">
+                  <strong>Estado football-data</strong>
+                  <span className="badge">{footballMatchesCountRes.count ?? 0} partidos</span>
+                </div>
+                {footballMatchesCountRes.error ? (
+                  <p className="muted">Aplica `16_football_data_matches.sql` para activar partidos.</p>
+                ) : (
+                  <>
+                    <p className="muted">
+                      Ultimo sync:{" "}
+                      {latestFootballSync?.finished_at
+                        ? formatDate(latestFootballSync.finished_at)
+                        : "Sin sincronizaciones"}
+                      {latestFootballSync ? ` - ${latestFootballSync.status}` : ""}
+                    </p>
+                    {latestFootballSync && (
+                      <p className="muted">
+                        Fetched {latestFootballSync.fetched} - Inserted {latestFootballSync.inserted} -
+                        Updated {latestFootballSync.updated} - Skipped {latestFootballSync.skipped}
+                      </p>
+                    )}
+                    {footballSyncErrors.slice(0, 3).map((syncError) => (
+                      <p className="muted" key={String(syncError)}>
+                        Warning: {String(syncError)}
+                      </p>
+                    ))}
+                    <div className="admin-item__actions">
+                      <form action={syncFootballMatchesNow}>
+                        <button className="btn btn--primary" type="submit">
+                          Sincronizar ahora
+                        </button>
+                      </form>
+                      <Link className="btn btn--ghost" href="/partidos">
+                        Ver partidos
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </article>
+              <article className="admin-item">
+                <div className="admin-item__head">
+                  <strong>Proximos partidos</strong>
+                  <span className="badge">{upcomingFootballMatches.length}</span>
+                </div>
+                {upcomingFootballMatches.length === 0 ? (
+                  <p className="muted">Sin datos proximos.</p>
+                ) : (
+                  upcomingFootballMatches.map((match) => (
+                    <p className="muted" key={match.id}>
+                      {formatDate(match.kickoff_at)} - {match.home_team_name} vs {match.away_team_name} -{" "}
+                      {match.competition_name ?? "Futbol"}
+                    </p>
+                  ))
+                )}
+              </article>
+            </div>
+          </div>
+
           <div className="card card__pad admin-panel">
             <div className="account-panel__head">
               <h2>Anti-spam</h2>

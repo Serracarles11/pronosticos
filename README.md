@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Configura `.env.local` a partir de `.env.example` y ejecuta las migraciones SQL de `supabase/` en orden, desde `00_types.sql` hasta `15_anti_spam.sql`.
+Configura `.env.local` a partir de `.env.example` y ejecuta las migraciones SQL de `supabase/` en orden. Para partidos reales aplica tambien `16_football_data_matches.sql`.
 
 Comprobacion local:
 
@@ -19,7 +19,7 @@ npm run check
 
 ## Despliegue en Vercel
 
-El proyecto esta preparado para Vercel con `vercel.json`, `npm ci` y `npm run build`.
+El proyecto esta preparado para Vercel con `vercel.json`, `npm ci` y `npm run build`. El archivo `public/logo.webp` se usa como logo de cabecera, icono y preview social.
 
 Build settings en Vercel:
 
@@ -35,21 +35,37 @@ Variables de entorno necesarias:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 NEXT_PUBLIC_SITE_URL=https://tu-dominio.vercel.app
+SUPABASE_SERVICE_ROLE_KEY=solo-en-servidor-para-cron
+CRON_SECRET=secreto-para-cron
+FOOTBALL_DATA_API_KEY=tu-key-football-data
+FOOTBALL_DATA_BASE_URL=https://api.football-data.org/v4
+FOOTBALL_DATA_SYNC_DAYS_AHEAD=14
+FOOTBALL_DATA_COMPETITIONS=PL,PD,SA,BL1,FL1,CL,WC
 ```
 
 Antes de publicar:
 
-- Ejecuta todas las migraciones de `supabase/` hasta `15_anti_spam.sql`.
+- Ejecuta todas las migraciones necesarias de `supabase/` en orden, incluyendo `16_football_data_matches.sql` si usas partidos reales.
 - En Supabase Authentication, anade estas URLs en Redirect URLs:
   - `https://tu-dominio.vercel.app/auth/callback`
   - `https://tu-dominio.com/auth/callback` si usas dominio propio.
 - Si activas Google OAuth, en Google Cloud usa como redirect autorizado el callback de Supabase: `https://your-project.supabase.co/auth/v1/callback`.
 - En produccion, usa siempre un dominio HTTPS en `NEXT_PUBLIC_SITE_URL`.
+- El cron diario de Vercel llama a `/api/internal/cron/sync-football-matches` a las `06:00 UTC`; Vercel enviara `CRON_SECRET` como `Authorization: Bearer ...`.
+
+Despliegue por CLI:
+
+```bash
+npm run check
+npx vercel
+npx vercel --prod
+```
 
 ## Funcionalidades disponibles
 
 - Registro, login por correo, acceso con Google y configuracion de cuenta.
 - Feed de pronosticos con busqueda, filtros, categorias y visibilidad.
+- Partidos reales de futbol sincronizados desde football-data.org y disponibles en `/partidos`.
 - Autocompletado de usuarios con historial local y accesos rapidos.
 - Pronosticos publicos, para seguidores y borradores privados.
 - Bookmaker de referencia, cuota tomada y stake simulado.
@@ -95,15 +111,71 @@ Las metricas de ROI y yield usan unidades simuladas. No representan dinero real 
 
 ## Redes sociales
 
-Cada usuario puede editar sus enlaces desde `/cuenta`. Se soportan Instagram, TikTok, X, YouTube, Twitch, Telegram, Discord, WhatsApp Channel, Website, Linktree, Kick y Threads.
+Cada usuario puede editar sus enlaces desde `/cuenta`. Se soportan solo TikTok, Instagram y X.
 
 La validacion se realiza en servidor:
 
-- Solo URLs `https://`.
+- Puedes escribir usuario, `@usuario` o URL completa.
+- La app normaliza a `https://www.tiktok.com/usuario`, `https://www.instagram.com/usuario/` y `https://x.com/usuario`.
+- Solo URLs `https://` si escribes el enlace completo.
 - No se admiten credenciales embebidas.
 - Cada plataforma exige su dominio oficial.
 - Los campos vacios no se publican.
 - Cada enlace puede ocultarse del perfil publico.
+
+Si `user_social_links` aun no esta aplicado, `16_social_links_profile_fallback.sql` permite guardar temporalmente en `profiles.social_links`.
+
+## Partidos con football-data.org
+
+La app integra football-data.org v4 para guardar partidos de futbol en Supabase. El navegador nunca llama al proveedor y `FOOTBALL_DATA_API_KEY` no se expone al cliente.
+
+Para configurarlo:
+
+1. Crea una cuenta en `https://www.football-data.org/`.
+2. Copia tu API token.
+3. Configura en `.env.local` o Vercel:
+
+```bash
+FOOTBALL_DATA_API_KEY=...
+FOOTBALL_DATA_BASE_URL=https://api.football-data.org/v4
+FOOTBALL_DATA_SYNC_DAYS_AHEAD=14
+FOOTBALL_DATA_COMPETITIONS=PL,PD,SA,BL1,FL1,CL,WC
+SUPABASE_SERVICE_ROLE_KEY=...
+CRON_SECRET=...
+```
+
+Competiciones iniciales:
+
+- `PL`: Premier League
+- `PD`: LaLiga
+- `SA`: Serie A
+- `BL1`: Bundesliga
+- `FL1`: Ligue 1
+- `CL`: Champions League
+- `WC`: Mundial
+
+Ejecuta la sincronizacion local:
+
+```bash
+npm run sync:football
+```
+
+Endpoint interno para cron:
+
+```text
+GET /api/internal/cron/sync-football-matches
+Authorization: Bearer CRON_SECRET
+```
+
+En Vercel puedes programarlo cada manana o cada 6 horas. La estrategia beta recomendada es:
+
+- Sync diario de partidos proximos.
+- Sync manual desde `/admin`.
+- Sync mas frecuente cuando haya partidos en directo.
+
+La web lee siempre de `football_matches` en Supabase. Si football-data.org devuelve `401`, `429` o una competicion no disponible por plan gratuito, el sync registra warning y continua con el resto cuando es posible.
+
+`/nuevo` permite seleccionar un partido real. Al seleccionarlo se guarda `football_match_id`, `football_match_external_id`, evento, competicion y fecha del partido. Si no aparece el partido, el usuario puede seguir escribiendo el evento manualmente.
 
 ## Compartir
 
@@ -151,6 +223,10 @@ El panel `/admin` incluye la seccion "Anti-spam" para revisar eventos, aprobar/r
 - `13_auth_required_google.sql`: perfiles OAuth y lectura de pronosticos solo para usuarios autenticados.
 - `14_pronostico_copy_categories.sql`: link HTTPS de copia y categorias indexadas para pronosticos.
 - `15_anti_spam.sql`: limites anti-spam, palabras bloqueadas, mutes, shadowban y cola de moderacion.
+- `16_football_data_matches.sql`: partidos football-data.org, logs de sync y relacion con pronosticos.
+- `16_social_links_profile_fallback.sql`: fallback JSON para redes si la tabla social no esta aplicada.
+- `17_social_links_only_core.sql`: limita redes sociales a TikTok, Instagram y X.
+- `18_add_mundial_competition.sql`: anade Mundial como competicion.
 
 ## Siguientes modulos
 

@@ -21,6 +21,10 @@ export const metadata: Metadata = {
   },
   description: "Comunidad de pronosticos deportivos para mayores de edad, sin dinero real.",
   applicationName: "TodosGanamos",
+  icons: {
+    icon: [{ url: "/logo.webp", type: "image/webp" }],
+    shortcut: "/logo.webp",
+  },
   keywords: [
     "pronosticos deportivos",
     "tipsters",
@@ -38,6 +42,13 @@ export const metadata: Metadata = {
     siteName: "TodosGanamos",
     locale: "es_ES",
     type: "website",
+    images: [{ url: "/logo.webp", width: 1254, height: 1254, alt: "TodosGanamos" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "TodosGanamos",
+    description: "Comunidad de pronosticos deportivos para mayores de edad, sin dinero real.",
+    images: ["/logo.webp"],
   },
   robots: {
     index: true,

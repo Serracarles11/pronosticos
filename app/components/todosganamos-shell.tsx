@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AppLogo } from "./app-logo";
 import { HeaderAuth } from "./header-auth";
 import { HeaderSearch } from "./header-search";
 import { ShellBetaFeedback, ShellNotificationBell } from "./shell-client-widgets";
 
-type NavKey = "feed" | "ranking" | "perfil" | "cuenta" | "guardados" | "landing";
+type NavKey = "feed" | "partidos" | "ranking" | "perfil" | "cuenta" | "guardados" | "landing";
 
 type TodosGanamosShellProps = {
   active?: NavKey;
@@ -84,16 +85,14 @@ export function TodosGanamosShell({
     <>
       <header className="header">
         <div className="header__inner">
-          <Link href="/" className="logo">
-            <span className="logo__glyph" />
-            <span className="logo__word">
-              TodosGanamos<span className="logo__dot">.</span>
-            </span>
-          </Link>
+          <AppLogo preload />
           <HeaderSearch initialValue={searchValue} key={searchValue} />
           <nav className="nav">
             <NavLink href="/feed" active={active === "feed"}>
               Pronosticos
+            </NavLink>
+            <NavLink href="/partidos" active={active === "partidos"}>
+              Partidos
             </NavLink>
             <NavLink href="/ranking" active={active === "ranking"}>
               Ranking
@@ -122,14 +121,10 @@ export function TodosGanamosShell({
       <MobileBottomNav active={active} />
       {!hideFooter && <footer className="footer">
         <div className="footer__inner">
-          <Link href="/" className="logo">
-            <span className="logo__glyph" />
-            <span className="logo__word">
-              TodosGanamos<span className="logo__dot">.</span>
-            </span>
-          </Link>
+          <AppLogo />
           <nav className="footer__nav">
             <Link href="/feed">Feed</Link>
+            <Link href="/partidos">Partidos</Link>
             <Link href="/ranking">Ranking</Link>
             <Link href="/terminos">Terminos</Link>
             <Link href="/privacidad">Privacidad</Link>

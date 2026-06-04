@@ -27,13 +27,15 @@ export async function createPronostico(formData: FormData) {
   }
 
   const action = formData.get("_action") as string;
-  const deporte = formData.get("deporte") as string;
-  const competicion = formData.get("competicion") as string;
-  const evento = formData.get("evento") as string;
+  let deporte = formData.get("deporte") as string;
+  let competicion = formData.get("competicion") as string;
+  let evento = formData.get("evento") as string;
   const confianza = parseInt(formData.get("confianza") as string, 10);
   const explicacion = formData.get("explicacion") as string;
-  const fechaEvento = formData.get("fecha_evento") as string;
+  let fechaEvento = formData.get("fecha_evento") as string;
   const eventId = String(formData.get("event_id") ?? "").trim();
+  const footballMatchId = String(formData.get("football_match_id") ?? "").trim();
+  let footballMatchExternalId = String(formData.get("football_match_external_id") ?? "").trim();
   const bookmaker = String(formData.get("bookmaker") ?? "").trim().slice(0, 40);
   const stakeSimulado = parseFloat(String(formData.get("stake_simulado") ?? "1"));
   let copyLink: string | null = null;
@@ -51,6 +53,22 @@ export async function createPronostico(formData: FormData) {
 
   if (!["publico", "seguidores", "borrador"].includes(visibilidad)) {
     visibilidad = "publico";
+  }
+
+  if (footballMatchId) {
+    const { data: footballMatch } = await supabase
+      .from("football_matches")
+      .select("id, external_id, home_team_name, away_team_name, competition_name, kickoff_at")
+      .eq("id", footballMatchId)
+      .maybeSingle();
+
+    if (footballMatch) {
+      footballMatchExternalId = footballMatch.external_id;
+      deporte = "Futbol";
+      competicion = footballMatch.competition_name ?? competicion;
+      evento = `${footballMatch.home_team_name} vs ${footballMatch.away_team_name}`;
+      fechaEvento = footballMatch.kickoff_at;
+    }
   }
 
   // Picks: puede venir como JSON (múltiples selecciones) o campo simple
@@ -114,6 +132,8 @@ export async function createPronostico(formData: FormData) {
 
   let { data: insertedPick, error } = await supabase.from("pronosticos").insert({
     ...basePick,
+    football_match_id: footballMatchId || null,
+    football_match_external_id: footballMatchExternalId || null,
     bookmaker: bookmaker || null,
     stake_simulado: stakeSimulado,
     cuota_tomada_at: new Date().toISOString(),

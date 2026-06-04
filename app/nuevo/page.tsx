@@ -1,10 +1,12 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createPronostico } from "@/app/actions/pronosticos";
 import { formatPickCategory, normalizePickCategories } from "@/lib/pronostico-meta";
+import type { FootballMatchPickerItem } from "@/lib/football-data/types";
 
 type Pick = { mercado: string; cuota: string };
 
@@ -17,6 +19,17 @@ const CATEGORY_PRESETS = [
   ["value-bet", "Value bet"],
 ] as const;
 
+const FOOTBALL_COMPETITIONS = [
+  ["", "Todas"],
+  ["PL", "Premier League"],
+  ["PD", "LaLiga"],
+  ["SA", "Serie A"],
+  ["BL1", "Bundesliga"],
+  ["FL1", "Ligue 1"],
+  ["CL", "Champions League"],
+  ["WC", "Mundial"],
+] as const;
+
 function combinedOdds(picks: Pick[]): number {
   return picks.reduce((acc, p) => {
     const v = parseFloat(p.cuota);
@@ -24,11 +37,39 @@ function combinedOdds(picks: Pick[]): number {
   }, 1);
 }
 
+function toDatetimeLocal(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function formatMatchDate(value: string) {
+  return new Date(value).toLocaleString("es-ES", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function NuevoPage() {
   const [confianza, setConfianza] = useState(4);
   const [picks, setPicks] = useState<Pick[]>([{ mercado: "", cuota: "" }]);
   const [categorias, setCategorias] = useState("");
   const [copyLink, setCopyLink] = useState("");
+  const [deporte, setDeporte] = useState("Futbol");
+  const [competicion, setCompeticion] = useState("LaLiga");
+  const [evento, setEvento] = useState("");
+  const [fechaEvento, setFechaEvento] = useState("");
+  const [selectedMatch, setSelectedMatch] = useState<FootballMatchPickerItem | null>(null);
+  const [matchQuery, setMatchQuery] = useState("");
+  const [matchDate, setMatchDate] = useState("");
+  const [matchCompetition, setMatchCompetition] = useState("");
+  const [matchResults, setMatchResults] = useState<FootballMatchPickerItem[]>([]);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
   const [preview, setPreview] = useState({
     evento: "Real Sociedad - Villarreal",
     explicacion: "La Real lleva 6 partidos seguidos con BTTS en casa...",
@@ -72,6 +113,79 @@ export default function NuevoPage() {
       : totalOdds.toFixed(2);
   const previewCategories = normalizePickCategories(categorias);
 
+  function applyFootballMatch(match: FootballMatchPickerItem) {
+    const eventLabel = `${match.home_team_name} vs ${match.away_team_name}`;
+    const matchCompetitionName = match.competition_name ?? match.competition_code ?? "Futbol";
+    setSelectedMatch(match);
+    setDeporte("Futbol");
+    setCompeticion(matchCompetitionName);
+    setEvento(eventLabel);
+    setFechaEvento(toDatetimeLocal(match.kickoff_at));
+    setPreview((current) => ({
+      ...current,
+      evento: eventLabel,
+      competicion: matchCompetitionName,
+    }));
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const matchId = params.get("matchId");
+    if (!matchId) return;
+
+    let ignore = false;
+    fetch(`/api/football-matches/search?id=${encodeURIComponent(matchId)}&limit=1`)
+      .then((response) => response.json())
+      .then((payload: { matches?: FootballMatchPickerItem[] }) => {
+        if (!ignore && payload.matches?.[0]) applyFootballMatch(payload.matches[0]);
+      })
+      .catch(() => {
+        if (!ignore) setMatchError("No se pudo cargar el partido seleccionado.");
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    const timeout = window.setTimeout(async () => {
+      setMatchLoading(true);
+      setMatchError(null);
+
+      const params = new URLSearchParams({ limit: "8" });
+      if (matchQuery.trim()) params.set("q", matchQuery.trim());
+      if (matchCompetition) params.set("competitionCode", matchCompetition);
+      if (matchDate) {
+        const from = new Date(`${matchDate}T00:00:00`);
+        const to = new Date(`${matchDate}T23:59:59`);
+        params.set("dateFrom", from.toISOString());
+        params.set("dateTo", to.toISOString());
+      }
+
+      try {
+        const response = await fetch(`/api/football-matches/search?${params.toString()}`);
+        const payload = (await response.json()) as {
+          matches?: FootballMatchPickerItem[];
+          error?: string;
+        };
+        if (ignore) return;
+        setMatchResults(payload.matches ?? []);
+        if (payload.error) setMatchError(payload.error);
+      } catch {
+        if (!ignore) setMatchError("No se pudieron buscar partidos.");
+      } finally {
+        if (!ignore) setMatchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      ignore = true;
+      window.clearTimeout(timeout);
+    };
+  }, [matchCompetition, matchDate, matchQuery]);
+
   async function handleSubmit(formData: FormData) {
     formData.set("confianza", String(confianza));
     formData.set("picks_json", JSON.stringify(picks));
@@ -114,6 +228,93 @@ export default function NuevoPage() {
             {error && <div className="auth-error" style={{ marginBottom: 16 }}>{error}</div>}
 
             <form action={handleSubmit} id="pred-form">
+              <div className="field match-picker">
+                <div className="match-picker__head">
+                  <div>
+                    <label className="field__label" htmlFor="match_search">
+                      Partido real
+                    </label>
+                    <div className="field__hint">
+                      Opcional. Selecciona un partido sincronizado o escribe el evento manualmente.
+                    </div>
+                  </div>
+                  {selectedMatch && (
+                    <button
+                      className="btn btn--ghost"
+                      onClick={() => setSelectedMatch(null)}
+                      type="button"
+                    >
+                      Quitar partido
+                    </button>
+                  )}
+                </div>
+                <input type="hidden" name="football_match_id" value={selectedMatch?.id ?? ""} />
+                <input
+                  type="hidden"
+                  name="football_match_external_id"
+                  value={selectedMatch?.external_id ?? ""}
+                />
+                <div className="match-picker__filters">
+                  <input
+                    className="input"
+                    id="match_search"
+                    onChange={(event) => setMatchQuery(event.target.value)}
+                    placeholder="Buscar Real Madrid, Barcelona, Champions..."
+                    type="search"
+                    value={matchQuery}
+                  />
+                  <input
+                    className="input"
+                    onChange={(event) => setMatchDate(event.target.value)}
+                    type="date"
+                    value={matchDate}
+                  />
+                  <select
+                    className="select"
+                    onChange={(event) => setMatchCompetition(event.target.value)}
+                    value={matchCompetition}
+                  >
+                    {FOOTBALL_COMPETITIONS.map(([value, label]) => (
+                      <option key={value || "all"} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {selectedMatch && (
+                  <div className="match-picker__selected">
+                    <strong>{selectedMatch.home_team_name} vs {selectedMatch.away_team_name}</strong>
+                    <span>{selectedMatch.competition_name ?? selectedMatch.competition_code} - {formatMatchDate(selectedMatch.kickoff_at)}</span>
+                  </div>
+                )}
+                <div className="match-picker__results">
+                  {matchLoading && <p className="muted">Buscando partidos...</p>}
+                  {!matchLoading && matchError && <p className="muted">{matchError}</p>}
+                  {!matchLoading && !matchError && matchResults.length === 0 && (
+                    <p className="muted">No hay partidos disponibles con esos filtros.</p>
+                  )}
+                  {matchResults.map((match) => (
+                    <button
+                      className={`match-option ${selectedMatch?.id === match.id ? "is-active" : ""}`}
+                      key={match.id}
+                      onClick={() => applyFootballMatch(match)}
+                      type="button"
+                    >
+                      <span className="match-option__teams">
+                        {match.home_team_crest && <img alt="" src={match.home_team_crest} />}
+                        <strong>{match.home_team_name}</strong>
+                        <span>vs</span>
+                        {match.away_team_crest && <img alt="" src={match.away_team_crest} />}
+                        <strong>{match.away_team_name}</strong>
+                      </span>
+                      <span className="match-option__meta">
+                        {match.competition_name ?? match.competition_code ?? "Futbol"} - {formatMatchDate(match.kickoff_at)} - {match.status}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="publish__grid-2">
                 <div className="field">
                   <label className="field__label" htmlFor="deporte">
@@ -123,8 +324,8 @@ export default function NuevoPage() {
                     id="deporte"
                     name="deporte"
                     className="select"
-                    defaultValue="Futbol"
-                    onChange={(e) => setPreview((p) => ({ ...p, deporte: e.target.value }))}
+                    value={deporte}
+                    onChange={(e) => setDeporte(e.target.value)}
                   >
                     <option>Futbol</option>
                     <option>Tenis</option>
@@ -141,8 +342,11 @@ export default function NuevoPage() {
                     id="competicion"
                     name="competicion"
                     className="select"
-                    defaultValue="LaLiga"
-                    onChange={(e) => setPreview((p) => ({ ...p, competicion: e.target.value }))}
+                    value={competicion}
+                    onChange={(e) => {
+                      setCompeticion(e.target.value);
+                      setPreview((p) => ({ ...p, competicion: e.target.value }));
+                    }}
                   >
                     <option>LaLiga</option>
                     <option>Premier League</option>
@@ -166,8 +370,11 @@ export default function NuevoPage() {
                   className="input"
                   placeholder="Ej: Real Sociedad - Villarreal"
                   required
-                  onChange={(e) => setPreview((p) => ({ ...p, evento: e.target.value || "..." }))}
-                  defaultValue=""
+                  onChange={(e) => {
+                    setEvento(e.target.value);
+                    setPreview((p) => ({ ...p, evento: e.target.value || "..." }));
+                  }}
+                  value={evento}
                 />
                 <div className="field__hint">
                   Escribe el nombre del partido o evento.
@@ -291,7 +498,9 @@ export default function NuevoPage() {
                     id="fecha_evento"
                     name="fecha_evento"
                     className="input"
+                    onChange={(event) => setFechaEvento(event.target.value)}
                     type="datetime-local"
+                    value={fechaEvento}
                   />
                 </div>
                 <div className="field">

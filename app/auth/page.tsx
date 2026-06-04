@@ -4,6 +4,7 @@ import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { login, loginWithGoogle, signup } from "@/app/actions/auth";
+import { AppLogo } from "@/app/components/app-logo";
 import { normalizeAuthRedirect } from "@/lib/auth-redirect";
 
 function AuthContent() {
@@ -35,12 +36,7 @@ function AuthContent() {
     <div className="auth-layout">
       {/* Panel izquierdo — branding */}
       <div className="auth-panel auth-panel--left">
-        <Link href="/" className="logo auth-panel__logo">
-          <span className="logo__glyph" />
-          <span className="logo__word">
-            TodosGanamos<span className="logo__dot">.</span>
-          </span>
-        </Link>
+        <AppLogo className="auth-panel__logo" preload />
 
         <div className="auth-panel__copy">
           <h2>La comunidad de tipsters mas transparente.</h2>
