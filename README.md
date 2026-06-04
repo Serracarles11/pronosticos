@@ -5,8 +5,8 @@ TodosGanamos es una comunidad de pronosticos deportivos informativos para mayore
 ## Puesta en marcha
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Configura `.env.local` a partir de `.env.example` y ejecuta las migraciones SQL de `supabase/` en orden. Para partidos reales aplica tambien `16_football_data_matches.sql`.
@@ -14,20 +14,20 @@ Configura `.env.local` a partir de `.env.example` y ejecuta las migraciones SQL 
 Comprobacion local:
 
 ```bash
-npm run check
+pnpm check
 ```
 
 ## Despliegue en Vercel
 
-El proyecto esta preparado para Vercel con `vercel.json`, `npm ci` y `npm run build`. El archivo `public/logo.webp` se usa como logo de cabecera, icono y preview social.
+El proyecto esta preparado para Vercel con `vercel.json`, `pnpm install --frozen-lockfile` y `pnpm run build`. El archivo `public/logo.webp` se usa como logo de cabecera, icono y preview social.
 
 Build settings en Vercel:
 
 - Framework Preset: `Next.js`
-- Install Command: `npm ci`
-- Build Command: `npm run build`
+- Install Command: `pnpm install --frozen-lockfile`
+- Build Command: `pnpm run build`
 - Output Directory: `.next`
-- Node.js: `20.x` o superior
+- Node.js: `22.x`
 
 Variables de entorno necesarias:
 
@@ -56,7 +56,7 @@ Antes de publicar:
 Despliegue por CLI:
 
 ```bash
-npm run check
+pnpm check
 npx vercel
 npx vercel --prod
 ```
@@ -157,7 +157,7 @@ Competiciones iniciales:
 Ejecuta la sincronizacion local:
 
 ```bash
-npm run sync:football
+pnpm sync:football
 ```
 
 Endpoint interno para cron:

@@ -52,7 +52,7 @@ WHERE username = 'TU_USUARIO';
 Run locally before deploying:
 
 ```bash
-npm run check
+pnpm check
 ```
 
 After deploy, check:

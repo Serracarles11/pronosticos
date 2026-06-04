@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.24.0",
   "engines": {
-    "node": ">=20.9.0"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "next dev",
@@ -13,9 +14,10 @@
     "lint": "eslint",
     "test": "node --experimental-strip-types --test tests/*.test.mts",
     "sync:football": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/sync-football-matches.ts",
-    "check": "npm run test && npm run lint && npm run build"
+    "check": "pnpm run test && pnpm run lint && pnpm run build"
   },
   "dependencies": {
+    "@next/env": "16.2.6",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.0",
     "motion": "^12.40.0",
