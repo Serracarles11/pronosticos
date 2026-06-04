@@ -2,8 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { HeaderAuth } from "./header-auth";
 import { HeaderSearch } from "./header-search";
-import { NotificationBell } from "./notification-bell";
-import { BetaFeedback } from "./beta-feedback";
+import { ShellBetaFeedback, ShellNotificationBell } from "./shell-client-widgets";
 
 type NavKey = "feed" | "ranking" | "perfil" | "cuenta" | "guardados" | "landing";
 
@@ -108,7 +107,7 @@ export function TodosGanamosShell({
             {active === "landing" ? <a href="#como-funciona">Como funciona</a> : null}
           </nav>
           <div className="header__right">
-            <NotificationBell />
+            <ShellNotificationBell />
             {headerAction ?? <HeaderAuth />}
           </div>
         </div>
@@ -119,7 +118,7 @@ export function TodosGanamosShell({
         <span>Juega y debate con responsabilidad</span>
       </div>
       {children}
-      <BetaFeedback />
+      <ShellBetaFeedback />
       <MobileBottomNav active={active} />
       {!hideFooter && <footer className="footer">
         <div className="footer__inner">

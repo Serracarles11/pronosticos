@@ -82,7 +82,9 @@ export default async function RankingPage({
   let query = supabase
     .from("pronosticos")
     .select("id, user_id, estado, deporte, profiles!pronosticos_user_id_fkey(id, username, display_name)")
-    .eq("visibilidad", "publico");
+    .eq("visibilidad", "publico")
+    .order("created_at", { ascending: false })
+    .limit(1000);
 
   if (desde) query = query.gte("created_at", desde);
   if (activeDeporte !== "todos") query = query.ilike("deporte", activeDeporte);

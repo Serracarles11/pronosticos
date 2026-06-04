@@ -8,7 +8,7 @@ import { ReportUserButton } from "@/app/components/report-user-button";
 import { ShareButton } from "@/app/components/share-button";
 import { SocialLinks } from "@/app/components/social-links";
 import { UserAvatar } from "@/app/components/user-avatar";
-import type { SocialLink } from "@/lib/social-links";
+import { parseProfileSocialLinks, type SocialLink } from "@/lib/social-links";
 
 type Props = {
   params: Promise<{ username: string }>;
@@ -131,7 +131,9 @@ export default async function PublicUserPage({ params, searchParams }: Props) {
   ]);
 
   const picks = picksRes.data ?? [];
-  const socialLinks = (socialsRes.data ?? []) as SocialLink[];
+  const socialLinks = socialsRes.error
+    ? parseProfileSocialLinks(profile.social_links)
+    : ((socialsRes.data ?? []) as SocialLink[]);
   const badges = (badgesRes.data ?? []).flatMap((item) => {
     const badge = item.badges as unknown as
       | { name: string; slug: string; description: string | null }

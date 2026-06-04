@@ -1,12 +1,8 @@
 import { normalizeSocialUrl, socialPlatformLabel, type SocialLink } from "@/lib/social-links";
+import { SocialIcon, socialIconSrc } from "./social-icon";
 
 function iconText(platform: SocialLink["platform"]) {
   if (platform === "instagram") return "IG";
-  if (platform === "youtube") return "YT";
-  if (platform === "telegram") return "TG";
-  if (platform === "whatsapp") return "WA";
-  if (platform === "website") return "WWW";
-  if (platform === "linktree") return "LT";
   return platform.toUpperCase().slice(0, 2);
 }
 
@@ -34,7 +30,11 @@ export function SocialLinks({ links }: { links: SocialLink[] }) {
           rel="noopener noreferrer"
           target="_blank"
         >
-          <span>{iconText(link.platform)}</span>
+          {socialIconSrc(link.platform) ? (
+            <SocialIcon platform={link.platform} />
+          ) : (
+            <span>{iconText(link.platform)}</span>
+          )}
           {socialPlatformLabel(link.platform)}
         </a>
       ))}

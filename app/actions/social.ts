@@ -13,6 +13,11 @@ function accountError(message: string): never {
   redirect(`/cuenta?error=${encodeURIComponent(message)}`);
 }
 
+function isMissingSocialLinksStorage(error: { code?: string; message?: string } | null) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return error?.code === "42P01" || error?.code === "42703" || message.includes("schema cache");
+}
+
 export async function updateSocialLinks(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -47,6 +52,7 @@ export async function updateSocialLinks(formData: FormData) {
     .eq("id", user.id)
     .single();
 
+  let shouldUseProfileFallback = false;
   if (links.length > 0) {
     const { error } = await supabase
       .from("user_social_links")
@@ -54,15 +60,39 @@ export async function updateSocialLinks(formData: FormData) {
         onConflict: "user_id,platform",
       });
 
-    if (error) accountError(error.message);
+    if (isMissingSocialLinksStorage(error)) {
+      shouldUseProfileFallback = true;
+    } else if (error) {
+      accountError(error.message);
+    }
   }
 
-  let deleteQuery = supabase.from("user_social_links").delete().eq("user_id", user.id);
-  if (links.length > 0) {
-    deleteQuery = deleteQuery.not("platform", "in", `(${links.map((link) => link.platform).join(",")})`);
+  if (!shouldUseProfileFallback) {
+    let deleteQuery = supabase.from("user_social_links").delete().eq("user_id", user.id);
+    if (links.length > 0) {
+      deleteQuery = deleteQuery.not("platform", "in", `(${links.map((link) => link.platform).join(",")})`);
+    }
+    const { error: deleteError } = await deleteQuery;
+    if (isMissingSocialLinksStorage(deleteError)) {
+      shouldUseProfileFallback = true;
+    } else if (deleteError) {
+      accountError(deleteError.message);
+    }
   }
-  const { error: deleteError } = await deleteQuery;
-  if (deleteError) accountError(deleteError.message);
+
+  if (shouldUseProfileFallback) {
+    const { error: fallbackError } = await supabase
+      .from("profiles")
+      .update({ social_links: links })
+      .eq("id", user.id);
+    if (fallbackError) {
+      accountError(
+        isMissingSocialLinksStorage(fallbackError)
+          ? "Aplica la migracion 16_social_links_profile_fallback.sql para activar las redes sociales."
+          : fallbackError.message
+      );
+    }
+  }
 
   revalidatePath("/cuenta");
   if (profile?.username) revalidatePath(`/u/${profile.username}`);

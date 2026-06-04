@@ -147,26 +147,40 @@ export async function toggleLike(pronosticoId: string) {
 
   if (!user) return { error: "Debes iniciar sesion." };
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("likes")
     .select("user_id")
     .eq("user_id", user.id)
     .eq("pronostico_id", pronosticoId)
-    .single();
+    .maybeSingle();
 
+  if (existingError) return { error: existingError.message };
+
+  let liked = false;
   if (existing) {
-    await supabase
+    const { error } = await supabase
       .from("likes")
       .delete()
       .eq("user_id", user.id)
       .eq("pronostico_id", pronosticoId);
+    if (error) return { error: error.message };
+    liked = false;
   } else {
-    await supabase.from("likes").insert({ user_id: user.id, pronostico_id: pronosticoId });
+    const { error } = await supabase.from("likes").insert({ user_id: user.id, pronostico_id: pronosticoId });
+    if (error) {
+      if (error.code !== "23505") return { error: error.message };
+    }
+    liked = true;
   }
+
+  const { count } = await supabase
+    .from("likes")
+    .select("user_id", { count: "exact", head: true })
+    .eq("pronostico_id", pronosticoId);
 
   revalidatePath("/feed");
   revalidatePath("/detalle");
-  return { liked: !existing };
+  return { liked, count: count ?? null };
 }
 
 export async function addComentario(pronosticoId: string, contenido: string) {

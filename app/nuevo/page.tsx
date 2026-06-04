@@ -147,6 +147,7 @@ export default function NuevoPage() {
                     <option>LaLiga</option>
                     <option>Premier League</option>
                     <option>Champions League</option>
+                    <option>Mundial</option>
                     <option>Liga Hypermotion</option>
                     <option>Roland Garros</option>
                     <option>NBA Playoffs</option>

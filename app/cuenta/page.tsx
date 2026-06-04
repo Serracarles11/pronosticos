@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { logout, updateAccount, updatePassword } from "@/app/actions/auth";
 import { acceptFollowRequest, rejectFollowRequest } from "@/app/actions/pronosticos";
 import { updateSocialLinks } from "@/app/actions/social";
-import { SOCIAL_PLATFORMS, type SocialLink } from "@/lib/social-links";
+import { parseProfileSocialLinks, SOCIAL_PLATFORMS, type SocialLink } from "@/lib/social-links";
+import { SocialIcon, socialIconSrc } from "../components/social-icon";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 
@@ -57,7 +58,7 @@ export default async function CuentaPage({
       .eq("user_id", user.id),
     supabase
       .from("guardados")
-      .select("*", { count: "exact", head: true })
+      .select("pronostico_id", { count: "exact", head: true })
       .eq("user_id", user.id),
     supabase
       .from("seguimiento_solicitudes")
@@ -80,8 +81,11 @@ export default async function CuentaPage({
   const color = avatarColor(username);
   const initials = username.slice(0, 2).toUpperCase();
   const message = statusMessage(ok, error);
+  const socialLinks = socialLinksRes.error
+    ? parseProfileSocialLinks(profile.social_links)
+    : ((socialLinksRes.data ?? []) as SocialLink[]);
   const socialLinkMap = new Map(
-    ((socialLinksRes.data ?? []) as SocialLink[]).map((link) => [link.platform, link])
+    socialLinks.map((link) => [link.platform, link])
   );
 
   const total = pronosticos?.length ?? 0;
@@ -297,26 +301,46 @@ export default async function CuentaPage({
                 </div>
               </div>
 
-              {socialLinksRes.error ? (
+              {socialLinksRes.error && (
                 <div className="account-alert account-alert--info">
-                  Las redes sociales estaran disponibles al aplicar la migracion social pendiente.
+                  Puedes guardar tus redes aqui. Si el guardado falla, aplica la migracion social pendiente en Supabase.
                 </div>
-              ) : <form action={updateSocialLinks} className="account-form social-settings">
+              )}
+              <form action={updateSocialLinks} className="account-form social-settings">
                 {SOCIAL_PLATFORMS.map((platform) => {
                   const link = socialLinkMap.get(platform.id);
                   return (
                     <div className="social-settings__row" key={platform.id}>
+                      <div className="social-settings__platform">
+                        <div className="social-settings__icon" aria-hidden="true">
+                          {socialIconSrc(platform.id) ? (
+                            <SocialIcon platform={platform.id} size={22} />
+                          ) : (
+                            <span>{platform.label.slice(0, 2).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div>
+                          <strong>{platform.label}</strong>
+                          {link?.url ? (
+                            <a href={link.url} rel="noopener noreferrer" target="_blank">
+                              Abrir perfil
+                            </a>
+                          ) : (
+                            <small>Sin enlace</small>
+                          )}
+                        </div>
+                      </div>
                       <div className="field">
                         <label className="field__label" htmlFor={`social_${platform.id}`}>
-                          {platform.label}
+                          Usuario o link
                         </label>
                         <input
                           className="input"
                           defaultValue={link?.url ?? ""}
                           id={`social_${platform.id}`}
                           name={`social_${platform.id}`}
-                          placeholder="https://..."
-                          type="url"
+                          placeholder="@usuario o https://..."
+                          type="text"
                         />
                       </div>
                       <label className="check-field social-settings__visibility">
@@ -333,7 +357,7 @@ export default async function CuentaPage({
                 <button className="btn btn--primary" type="submit">
                   Guardar redes
                 </button>
-              </form>}
+              </form>
             </section>
 
             <aside className="account__side">

@@ -7,19 +7,26 @@ test("normalizes supported HTTPS social URLs", () => {
     normalizeSocialUrl("instagram", "https://www.instagram.com/pulso/#perfil"),
     "https://www.instagram.com/pulso/"
   );
-  assert.equal(normalizeSocialUrl("telegram", "https://t.me/pulso"), "https://t.me/pulso");
-  assert.equal(normalizeSocialUrl("website", "https://example.com/profile"), "https://example.com/profile");
+  assert.equal(normalizeSocialUrl("tiktok", "https://www.tiktok.com/@pulso"), "https://www.tiktok.com/pulso");
+  assert.equal(normalizeSocialUrl("x", "https://x.com/pulso"), "https://x.com/pulso");
+});
+
+test("builds social URLs from usernames", () => {
+  assert.equal(normalizeSocialUrl("instagram", "nombre_usuario"), "https://www.instagram.com/nombre_usuario/");
+  assert.equal(normalizeSocialUrl("x", "@nombre"), "https://x.com/nombre");
+  assert.equal(normalizeSocialUrl("tiktok", "nombre"), "https://www.tiktok.com/nombre");
 });
 
 test("rejects executable or insecure URL schemes", () => {
-  assert.throws(() => normalizeSocialUrl("website", "javascript:alert(1)"));
-  assert.throws(() => normalizeSocialUrl("website", "http://example.com"));
-  assert.throws(() => normalizeSocialUrl("website", "https://user:pass@example.com"));
+  assert.throws(() => normalizeSocialUrl("x", "javascript:alert(1)"));
+  assert.throws(() => normalizeSocialUrl("x", "http://x.com/pulso"));
+  assert.throws(() => normalizeSocialUrl("x", "https://user:pass@x.com/pulso"));
 });
 
 test("rejects a URL from the wrong provider", () => {
   assert.throws(() => normalizeSocialUrl("instagram", "https://example.com/pulso"));
-  assert.throws(() => normalizeSocialUrl("discord", "https://discord.example.com/invite"));
+  assert.throws(() => normalizeSocialUrl("tiktok", "https://instagram.com/pulso"));
+  assert.throws(() => normalizeSocialUrl("x", "nombre con espacios"));
 });
 
 test("accepts empty optional fields", () => {

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { LikeButton } from "../components/like-button";
 import { FollowButton } from "../components/follow-button";
 import { SaveButton } from "../components/save-button";
+import { CommentLink } from "../components/comment-link";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 
@@ -199,7 +200,6 @@ export default async function FeedPage({
     id: string;
     username: string;
     display_name: string | null;
-    bio: string | null;
     is_private: boolean;
   };
   let matchedProfiles: SearchProfile[] = [];
@@ -208,7 +208,7 @@ export default async function FeedPage({
     const profilePattern = `%${searchFilter.replace(/^@/, "")}%`;
     const { data } = await supabase
       .from("profiles")
-      .select("id, username, display_name, bio, is_private")
+      .select("id, username, display_name, is_private")
       .or(`username.ilike.${profilePattern},display_name.ilike.${profilePattern}`)
       .limit(8);
     matchedProfiles = (data ?? []) as SearchProfile[];
@@ -622,8 +622,13 @@ export default async function FeedPage({
                 return (
                   <article
                     key={item.id as string}
-                    className={`card pred ${i === 0 ? "card--featured" : ""}`}
+                    className={`card pred pred--clickable ${i === 0 ? "card--featured" : ""}`}
                   >
+                    <Link
+                      aria-label={`Ver apuesta: ${item.evento as string}`}
+                      className="pred__overlay-link"
+                      href={`/detalle?id=${item.id as string}`}
+                    />
                     <header className="pred__head">
                       <div className="pred__author">
                         <Link
@@ -699,9 +704,10 @@ export default async function FeedPage({
                         ) : (
                           <Link href="/auth">♥ {item.likes_count as number}</Link>
                         )}
-                        <Link href={`/detalle?id=${item.id as string}#comentarios`}>
-                          💬 {item.comentarios_count as number}
-                        </Link>
+                        <CommentLink
+                          count={item.comentarios_count as number}
+                          href={`/detalle?id=${item.id as string}#comentarios`}
+                        />
                         {user && (
                           <SaveButton
                             pronosticoId={item.id as string}

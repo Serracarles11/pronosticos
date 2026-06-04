@@ -18,6 +18,7 @@ INSERT INTO public.competitions (sport_id, name, slug, country) VALUES
   ('00000000-0000-0000-0000-000000000001', 'LaLiga',           'laliga',           'ESP'),
   ('00000000-0000-0000-0000-000000000001', 'Premier League',   'premier-league',   'ENG'),
   ('00000000-0000-0000-0000-000000000001', 'Champions League', 'champions-league', NULL),
+  ('00000000-0000-0000-0000-000000000001', 'Mundial',          'mundial',          NULL),
   ('00000000-0000-0000-0000-000000000001', 'Liga Hypermotion', 'liga-hypermotion', 'ESP'),
   ('00000000-0000-0000-0000-000000000001', 'Copa del Rey',     'copa-del-rey',     'ESP'),
   ('00000000-0000-0000-0000-000000000001', 'Bundesliga',       'bundesliga',       'GER'),

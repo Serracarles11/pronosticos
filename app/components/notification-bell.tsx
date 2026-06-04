@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
@@ -55,7 +56,14 @@ export function NotificationBell() {
   return (
     <div className="notifications">
       <button aria-label="Notificaciones" className="notification-bell" onClick={toggle} type="button">
-        <span className="notification-bell__icon" />
+        <Image
+          alt=""
+          aria-hidden="true"
+          className="notification-bell__icon"
+          height={20}
+          src="/notification-svgrepo-com.svg"
+          width={20}
+        />
         {unreadCount > 0 && <strong>{Math.min(unreadCount, 9)}</strong>}
       </button>
       {open && (

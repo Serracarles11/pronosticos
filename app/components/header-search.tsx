@@ -17,7 +17,6 @@ type ProfileSuggestion = {
   id: string;
   username: string;
   display_name: string | null;
-  bio: string | null;
   followers_count: number;
   is_private: boolean;
 };
@@ -189,7 +188,7 @@ export function HeaderSearch({ initialValue = "" }: { initialValue?: string }) {
 
   useEffect(() => {
     const profileTerm = cleanPostgrestSearch(term);
-    if (!profileTerm || odds) {
+    if (!open || document.visibilityState !== "visible" || profileTerm.length < 2 || odds) {
       return;
     }
 
@@ -199,7 +198,7 @@ export function HeaderSearch({ initialValue = "" }: { initialValue?: string }) {
       const pattern = `%${profileTerm}%`;
       const { data } = await supabase
         .from("profiles")
-        .select("id, username, display_name, bio, followers_count, is_private")
+        .select("id, username, display_name, followers_count, is_private")
         .or(`username.ilike.${pattern},display_name.ilike.${pattern}`)
         .order("followers_count", { ascending: false })
         .limit(6);
@@ -214,7 +213,7 @@ export function HeaderSearch({ initialValue = "" }: { initialValue?: string }) {
       ignore = true;
       window.clearTimeout(timeout);
     };
-  }, [odds, supabase, term]);
+  }, [odds, open, supabase, term]);
 
   function navigate(item: HistoryItem) {
     const normalizedItem = { ...item, href: normalizeInternalSearchHref(item.href) };

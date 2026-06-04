@@ -4,6 +4,7 @@ import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { LikeButton } from "../components/like-button";
 import { CommentForm } from "../components/comment-form";
+import { CommentLink } from "../components/comment-link";
 import { SaveButton } from "../components/save-button";
 import { FollowButton } from "../components/follow-button";
 import { SettlementForm } from "../components/settlement-form";
@@ -70,7 +71,7 @@ export default async function DetallePage({
     await Promise.all([
       supabase
         .from("likes")
-        .select("*", { count: "exact", head: true })
+        .select("user_id", { count: "exact", head: true })
         .eq("pronostico_id", id),
       user
         ? supabase
@@ -106,7 +107,7 @@ export default async function DetallePage({
         : Promise.resolve({ data: null }),
       supabase
         .from("comentarios")
-        .select("*, profiles!comentarios_user_id_fkey(username)")
+        .select("id, user_id, contenido, created_at, moderation_status, profiles!comentarios_user_id_fkey(username)")
         .eq("pronostico_id", id)
         .order("created_at", { ascending: true }),
       supabase
@@ -323,9 +324,12 @@ export default async function DetallePage({
                       ♥ {totalLikes}
                     </Link>
                   )}
-                  <a href="#comentarios" className="btn btn--ghost">
-                    💬 {comentarios.length} comentarios
-                  </a>
+                  <CommentLink
+                    className="btn btn--ghost"
+                    count={comentarios.length}
+                    href="#comentarios"
+                    label="comentarios"
+                  />
                   {user && (
                     <SaveButton pronosticoId={id} initialSaved={isSaved} />
                   )}
@@ -354,8 +358,14 @@ export default async function DetallePage({
 
               <div className="comments__list">
                 {comentarios.map((c) => {
-                  const cUsername =
-                    (c.profiles as { username: string } | null)?.username ?? "usuario";
+                  const cProfileData = c.profiles as unknown as
+                    | { username: string }
+                    | Array<{ username: string }>
+                    | null;
+                  const cProfile = Array.isArray(cProfileData)
+                    ? cProfileData[0] ?? null
+                    : cProfileData;
+                  const cUsername = cProfile?.username ?? "usuario";
                   const cColor = avatarColor(cUsername);
                   const cInitials = cUsername.slice(0, 2).toUpperCase();
                   return (

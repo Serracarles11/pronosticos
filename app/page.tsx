@@ -15,22 +15,23 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const featuredRes = user
-    ? await supabase
-        .from("pronosticos")
-        .select("id, evento, mercado, cuota, confianza, estado, profiles!pronosticos_user_id_fkey(username)")
-        .eq("visibilidad", "publico")
-        .order("created_at", { ascending: false })
-        .limit(3)
-    : { data: [] };
+  const [featuredRes, allPronsRes] = user
+    ? await Promise.all([
+        supabase
+          .from("pronosticos")
+          .select("id, evento, mercado, cuota, confianza, estado, profiles!pronosticos_user_id_fkey(username)")
+          .eq("visibilidad", "publico")
+          .order("created_at", { ascending: false })
+          .limit(3),
+        supabase
+          .from("pronosticos")
+          .select("user_id, estado, profiles!pronosticos_user_id_fkey(username, display_name)")
+          .eq("visibilidad", "publico")
+          .order("created_at", { ascending: false })
+          .limit(500),
+      ])
+    : [{ data: [] }, { data: [] }];
   const featured = featuredRes.data;
-
-  const allPronsRes = user
-    ? await supabase
-        .from("pronosticos")
-        .select("user_id, estado, profiles!pronosticos_user_id_fkey(username, display_name)")
-        .eq("visibilidad", "publico")
-    : { data: [] };
   const allProns = allPronsRes.data;
 
   type TipsterMap = { username: string; displayName: string; total: number; acertadas: number };
