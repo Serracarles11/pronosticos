@@ -498,6 +498,15 @@ export default async function FeedPage({
                 >
                   Mas votadas
                 </Link>
+                {DEPORTES.map((d) => (
+                  <Link
+                    key={d}
+                    className={`chip ${activeDeporte.toLowerCase() === d.toLowerCase() ? "is-active" : ""}`}
+                    href={deporteLink(activeDeporte.toLowerCase() === d.toLowerCase() ? "todos" : d)}
+                  >
+                    {d}
+                  </Link>
+                ))}
                 <Link
                   className={`chip ${activeFilter === "siguiendo" ? "is-active" : ""}`}
                   href={filtroLink("siguiendo")}

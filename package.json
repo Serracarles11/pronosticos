@@ -7,6 +7,13 @@
   "engines": {
     "node": "22.x"
   },
+  "browserslist": [
+    "Chrome >= 111",
+    "Edge >= 111",
+    "Firefox >= 111",
+    "Safari >= 16.4",
+    "iOS >= 16.4"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",

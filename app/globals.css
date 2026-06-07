@@ -129,6 +129,7 @@ button {
   top: 0;
   z-index: 50;
   background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(10px);
   backdrop-filter: saturate(180%) blur(10px);
   border-bottom: 1px solid var(--border);
   height: var(--header-h);
@@ -677,6 +678,7 @@ button {
   justify-content: center;
   padding: 24px;
   background: rgba(11, 31, 58, 0.76);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 
@@ -3748,16 +3750,17 @@ button {
 }
 
 @supports (content-visibility: auto) {
-  .comments__list > *,
-  .rail__list > *,
-  .profile__list > *,
-  .ranking-grid > *,
-  .rank-table__row,
-  .saved-card,
-  .admin-item,
-  .feed-search-users__list > * {
-    content-visibility: auto;
-    contain-intrinsic-size: 1px 220px;
+  @media (min-width: 769px) {
+    .comments__list > *,
+    .rail__list > *,
+    .profile__list > *,
+    .ranking-grid > *,
+    .saved-card,
+    .admin-item,
+    .feed-search-users__list > * {
+      content-visibility: auto;
+      contain-intrinsic-size: 1px 220px;
+    }
   }
 }
 
@@ -3899,6 +3902,10 @@ button {
     margin-left: 0;
   }
 
+  body {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom));
+  }
+
   body:has(.mobile-bottom-nav) {
     padding-bottom: calc(70px + env(safe-area-inset-bottom));
   }
@@ -3916,6 +3923,7 @@ button {
     border-top: 1px solid var(--border);
     background: rgba(255, 255, 255, 0.96);
     box-shadow: 0 -8px 28px rgba(11, 31, 58, 0.08);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
     backdrop-filter: saturate(180%) blur(14px);
   }
 
@@ -4024,7 +4032,7 @@ button {
     min-height: 40px;
     padding-top: 8px;
     padding-bottom: 8px;
-    font-size: 13px;
+    font-size: 16px;
   }
 
   .search-popover {
@@ -4036,6 +4044,7 @@ button {
   }
 
   .search-popover__list {
+    max-height: min(390px, calc(100vh - 220px));
     max-height: min(390px, calc(100dvh - 220px));
   }
 
@@ -4057,6 +4066,7 @@ button {
 
   .feed {
     height: auto;
+    min-height: calc(100vh - var(--header-h) - 28px);
     min-height: calc(100dvh - var(--header-h) - 28px);
     overflow: visible;
   }
@@ -4446,9 +4456,39 @@ button {
     padding: 12px 10px;
   }
 
-  .rank-table__row .num,
   .rank-table__action {
     display: none;
+  }
+
+  .rank-table__row .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    grid-column: 2;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    text-align: left;
+    font-size: 12px;
+  }
+
+  .rank-table__row .num::before {
+    color: var(--text-3);
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-weight: 700;
+  }
+
+  .rank-table__row .num:nth-child(3)::before {
+    content: "Acierto";
+  }
+
+  .rank-table__row .num:nth-child(4)::before {
+    content: "Acertadas";
+  }
+
+  .rank-table__row .num:nth-child(5)::before {
+    content: "Pronosticos";
   }
 
   .beta-feedback {
@@ -4576,6 +4616,7 @@ button {
 
   .modal-lite__panel {
     width: 100%;
+    max-height: calc(100vh - 24px);
     max-height: calc(100dvh - 24px);
     overflow-y: auto;
   }
@@ -4613,6 +4654,19 @@ button {
   .pred__head-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .pred__sub {
+    white-space: normal;
+  }
+
+  .pred__cell-value,
+  .pred__title,
+  .rank-table__name,
+  .rank-table__sub,
+  .podium__name,
+  .podium__meta {
+    overflow-wrap: anywhere;
   }
 
   .pred__head-actions .pill,
@@ -4655,11 +4709,6 @@ button {
 
   .rank-table__row {
     grid-template-columns: 34px minmax(0, 1fr);
-  }
-
-  .rank-table__metric,
-  .rank-table__row > span:nth-last-child(-n + 3) {
-    display: none;
   }
 
   .pick-row,
@@ -4861,6 +4910,7 @@ button {
     height: calc(58px + env(safe-area-inset-bottom));
   }
 
+  body,
   body:has(.mobile-bottom-nav) {
     padding-bottom: calc(62px + env(safe-area-inset-bottom));
   }
