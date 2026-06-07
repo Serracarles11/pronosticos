@@ -5,6 +5,20 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeBetCopyLink, normalizePickCategories } from "@/lib/pronostico-meta";
 import {
+  localizeFootballCompetitionName,
+  localizeFootballTeamName,
+} from "@/lib/football-data/localize";
+import {
+  notifyFollowCreated,
+  notifyFollowRequestAccepted,
+  notifyFollowRequestCreated,
+  notifyFollowersAboutPronostico,
+  notifyPronosticoCommented,
+  notifyPronosticoLiked,
+  notifyPronosticoSaved,
+  notifyPronosticoSettled,
+} from "@/lib/notifications/events";
+import {
   buildEventKey,
   checkCommentRateLimit,
   checkFollowRateLimit,
@@ -65,8 +79,10 @@ export async function createPronostico(formData: FormData) {
     if (footballMatch) {
       footballMatchExternalId = footballMatch.external_id;
       deporte = "Futbol";
-      competicion = footballMatch.competition_name ?? competicion;
-      evento = `${footballMatch.home_team_name} vs ${footballMatch.away_team_name}`;
+      competicion = localizeFootballCompetitionName(footballMatch.competition_name) ?? competicion;
+      evento = `${localizeFootballTeamName(footballMatch.home_team_name)} vs ${localizeFootballTeamName(
+        footballMatch.away_team_name
+      )}`;
       fechaEvento = footballMatch.kickoff_at;
     }
   }
@@ -152,10 +168,62 @@ export async function createPronostico(formData: FormData) {
   }
 
   await recordLinkUsage(supabase, user.id, spamReview.links, "pronostico", insertedPick?.id ?? null);
+  if (insertedPick?.id) {
+    await notifyFollowersAboutPronostico(insertedPick.id);
+  }
 
   revalidatePath("/feed");
   revalidatePath("/perfil");
   redirect(action === "borrador" ? "/perfil" : "/feed");
+}
+
+export async function deletePronostico(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/auth");
+
+  const pronosticoId = String(formData.get("pronostico_id") ?? "");
+  if (!pronosticoId) redirect("/perfil");
+
+  const { data: pronostico, error: fetchError } = await supabase
+    .from("pronosticos")
+    .select("id, user_id, resultado_captura_path")
+    .eq("id", pronosticoId)
+    .maybeSingle();
+
+  if (fetchError || !pronostico) {
+    redirect(`/perfil?error=${encodeURIComponent("No se ha encontrado el pronostico.")}`);
+  }
+
+  if (pronostico.user_id !== user.id) {
+    redirect(`/detalle?id=${pronosticoId}&error=${encodeURIComponent("Solo el autor puede eliminar este pronostico.")}`);
+  }
+
+  const { error: deleteError } = await supabase
+    .from("pronosticos")
+    .delete()
+    .eq("id", pronosticoId)
+    .eq("user_id", user.id);
+
+  if (deleteError) {
+    redirect(`/detalle?id=${pronosticoId}&error=${encodeURIComponent(deleteError.message)}`);
+  }
+
+  if (pronostico.resultado_captura_path) {
+    await supabase.storage
+      .from("capturas-pronosticos")
+      .remove([pronostico.resultado_captura_path]);
+  }
+
+  revalidatePath("/feed");
+  revalidatePath("/perfil");
+  revalidatePath("/ranking");
+  revalidatePath("/guardados");
+  redirect("/perfil?ok=eliminado");
 }
 
 export async function toggleLike(pronosticoId: string) {
@@ -191,6 +259,7 @@ export async function toggleLike(pronosticoId: string) {
       if (error.code !== "23505") return { error: error.message };
     }
     liked = true;
+    await notifyPronosticoLiked(pronosticoId, user.id);
   }
 
   const { count } = await supabase
@@ -241,6 +310,9 @@ export async function addComentario(pronosticoId: string, contenido: string) {
   if (error) return { error: error.message };
 
   await recordLinkUsage(supabase, user.id, spamReview.links, "comentario", insertedComment?.id ?? null);
+  if (insertedComment?.id) {
+    await notifyPronosticoCommented(pronosticoId, insertedComment.id, user.id);
+  }
 
   revalidatePath("/detalle");
   revalidatePath("/feed");
@@ -275,6 +347,7 @@ export async function savePronostico(pronosticoId: string) {
       .from("guardados")
       .insert({ user_id: user.id, pronostico_id: pronosticoId });
     if (error) return { error: error.message };
+    await notifyPronosticoSaved(pronosticoId, user.id);
     return { saved: true };
   }
 }
@@ -462,6 +535,8 @@ export async function settlePronostico(formData: FormData) {
     settleRedirect(pronosticoId, updateError.message);
   }
 
+  await notifyPronosticoSettled(pronosticoId, estado);
+
   revalidatePath("/detalle");
   revalidatePath("/feed");
   revalidatePath("/perfil");
@@ -539,6 +614,7 @@ export async function followUser(targetUserId: string) {
       .from("seguimiento_solicitudes")
       .insert({ follower_id: user.id, following_id: targetUserId });
     if (error) return { error: error.message };
+    await notifyFollowRequestCreated(targetUserId, user.id);
     revalidatePath("/feed");
     revalidatePath("/ranking");
     revalidatePath("/perfil");
@@ -554,6 +630,7 @@ export async function followUser(targetUserId: string) {
     .from("seguimientos")
     .insert({ follower_id: user.id, following_id: targetUserId });
   if (error) return { error: error.message };
+  await notifyFollowCreated(targetUserId, user.id);
   revalidatePath("/feed");
   revalidatePath("/ranking");
   revalidatePath("/perfil");
@@ -586,6 +663,8 @@ export async function acceptFollowRequest(requesterId: string) {
     .eq("following_id", user.id);
 
   if (deleteError) return { error: deleteError.message };
+
+  await notifyFollowRequestAccepted(requesterId, user.id);
 
   revalidatePath("/cuenta");
   revalidatePath("/perfil");

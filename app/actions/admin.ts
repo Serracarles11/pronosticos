@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getDefaultFootballSyncRange, syncFootballMatches } from "@/lib/football-data/sync";
+import {
+  notifyFollowersAboutPronostico,
+  notifyPronosticoCommented,
+} from "@/lib/notifications/events";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -91,8 +95,35 @@ export async function updateModerationStatus(formData: FormData) {
   if (!["pronosticos", "comentarios"].includes(target)) throw new Error("Contenido invalido.");
   if (!["approved", "pending_review", "rejected", "hidden"].includes(status)) throw new Error("Estado invalido.");
 
-  const { error } = await supabase.from(target).update({ moderation_status: status }).eq("id", id);
-  if (error) throw new Error(error.message);
+  if (target === "pronosticos") {
+    const { data: before } = await supabase
+      .from("pronosticos")
+      .select("id, moderation_status")
+      .eq("id", id)
+      .maybeSingle();
+    const { error } = await supabase
+      .from("pronosticos")
+      .update({ moderation_status: status })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    if (status === "approved" && before?.moderation_status !== "approved") {
+      await notifyFollowersAboutPronostico(id);
+    }
+  } else {
+    const { data: before } = await supabase
+      .from("comentarios")
+      .select("id, pronostico_id, user_id, moderation_status")
+      .eq("id", id)
+      .maybeSingle();
+    const { error } = await supabase
+      .from("comentarios")
+      .update({ moderation_status: status })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    if (status === "approved" && before?.moderation_status !== "approved" && before) {
+      await notifyPronosticoCommented(String(before.pronostico_id), id, String(before.user_id));
+    }
+  }
 
   revalidatePath("/admin");
   revalidatePath("/feed");

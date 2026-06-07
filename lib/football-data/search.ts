@@ -1,6 +1,7 @@
 import { createClient } from "../supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FootballMatchPickerItem } from "./types";
+import { footballTeamSearchTerms, localizeFootballMatch } from "./localize.ts";
 
 type SupabaseLike = SupabaseClient;
 
@@ -48,20 +49,25 @@ export async function getMatchesForPicker({
 
   const term = cleanSearch(query);
   if (term) {
-    const pattern = `%${term}%`;
-    request = request.or(
-      [
-        `home_team_name.ilike.${pattern}`,
-        `away_team_name.ilike.${pattern}`,
-        `competition_name.ilike.${pattern}`,
-        `competition_code.ilike.${pattern}`,
-      ].join(",")
-    );
+    const filters = footballTeamSearchTerms(term)
+      .map(cleanSearch)
+      .filter(Boolean)
+      .slice(0, 6)
+      .flatMap((searchTerm) => {
+        const pattern = `%${searchTerm}%`;
+        return [
+          `home_team_name.ilike.${pattern}`,
+          `away_team_name.ilike.${pattern}`,
+          `competition_name.ilike.${pattern}`,
+          `competition_code.ilike.${pattern}`,
+        ];
+      });
+    request = request.or(filters.join(","));
   }
 
   const { data, error } = await request;
   if (error) throw new Error(error.message);
-  return (data ?? []) as FootballMatchPickerItem[];
+  return ((data ?? []) as FootballMatchPickerItem[]).map(localizeFootballMatch);
 }
 
 export async function getTodayAndUpcomingMatches() {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { dedupeFootballMatches, mapFootballDataStatus, normalizeFootballDataMatch } from "../lib/football-data/mapper.ts";
+import { footballTeamSearchTerms, localizeFootballTeamName } from "../lib/football-data/localize.ts";
 import { upsertFootballMatch } from "../lib/football-data/upsert.ts";
 
 const rawMatch = {
@@ -39,6 +40,13 @@ test("normalizes football-data matches", () => {
   assert.equal(match.status, "finished");
   assert.equal(match.home_score, 2);
   assert.equal(match.away_score, 1);
+});
+
+test("localizes football-data team names for Spanish UI", () => {
+  assert.equal(localizeFootballTeamName("Spain"), "Espana");
+  assert.equal(localizeFootballTeamName("Cape Verde Islands"), "Cabo Verde");
+  assert.equal(localizeFootballTeamName("Korea Republic"), "Corea del Sur");
+  assert.equal(footballTeamSearchTerms("Espana").includes("spain"), true);
 });
 
 test("dedupes matches by external id before upsert", () => {

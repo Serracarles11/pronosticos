@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -27,14 +27,46 @@ export function NotificationBell() {
   const [isPending, startTransition] = useTransition();
   const unreadCount = notifications.filter((notification) => !notification.read_at).length;
 
-  function toggle() {
-    setOpen((value) => !value);
-    if (loaded) return;
-
-    startTransition(async () => {
+  const refreshNotifications = useCallback(async () => {
+    try {
       setNotifications(await getNotifications());
       setLoaded(true);
-    });
+    } catch {
+      setLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refresh() {
+      try {
+        const nextNotifications = await getNotifications();
+        if (!cancelled) {
+          setNotifications(nextNotifications);
+          setLoaded(true);
+        }
+      } catch {
+        if (!cancelled) setLoaded(true);
+      }
+    }
+
+    void refresh();
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
+  function toggle() {
+    setOpen((value) => !value);
+    if (!loaded) {
+      startTransition(() => void refreshNotifications());
+    }
   }
 
   function markRead(id: string) {

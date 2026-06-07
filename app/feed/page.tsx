@@ -14,6 +14,8 @@ const CATEGORIAS = [
   ["quiniela", "Quiniela"],
   ["cuota-alta", "Cuota alta"],
 ] as const;
+const FEED_PAGE_SIZE = 20;
+const VOTED_SORT_CANDIDATE_LIMIT = 100;
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 function avatarColor(username: string) {
@@ -125,6 +127,8 @@ export default async function FeedPage({
   const activeCategoria = CATEGORIAS.some(([value]) => value === categoria)
     ? String(categoria)
     : "todas";
+  const activeSort = sort === "votadas" ? "votadas" : "recientes";
+  const activeDeporte = deporte ?? "todos";
 
   const supabase = await createClient();
   const {
@@ -232,8 +236,8 @@ export default async function FeedPage({
     );
   }
 
-  if (deporte && deporte !== "todos") {
-    query = query.ilike("deporte", deporte);
+  if (activeDeporte !== "todos") {
+    query = query.ilike("deporte", activeDeporte);
   }
 
   if (activeEstado !== "todos") {
@@ -256,13 +260,9 @@ export default async function FeedPage({
     query = query.gte("cuota", 3);
   }
 
-  if (sort === "votadas") {
-    query = query.order("likes", { ascending: false });
-  } else {
-    query = query.order("created_at", { ascending: false });
-  }
-
-  query = query.limit(20);
+  query = query
+    .order("created_at", { ascending: false })
+    .limit(activeSort === "votadas" ? VOTED_SORT_CANDIDATE_LIMIT : FEED_PAGE_SIZE);
 
   const { data: pronosticos } = await query;
 
@@ -323,6 +323,20 @@ export default async function FeedPage({
     ) as FeedItem[];
   }
 
+  if (activeSort === "votadas") {
+    items = [...items].sort((a, b) => {
+      const likesDiff = b.likes_count - a.likes_count;
+      if (likesDiff !== 0) return likesDiff;
+
+      const aCreatedAt = new Date(String(a.created_at ?? "")).getTime();
+      const bCreatedAt = new Date(String(b.created_at ?? "")).getTime();
+      return (Number.isFinite(bCreatedAt) ? bCreatedAt : 0) -
+        (Number.isFinite(aCreatedAt) ? aCreatedAt : 0);
+    });
+  }
+
+  items = items.slice(0, FEED_PAGE_SIZE);
+
   // Get which ones the current user has liked
   const userLikedIds = new Set<string>();
   const userSavedIds = new Set<string>();
@@ -350,8 +364,6 @@ export default async function FeedPage({
 
   const followedUserIdSet = new Set(followedUserIds);
   const requestedUserIdSet = new Set(requestedUserIds);
-  const activeSort = sort ?? "recientes";
-  const activeDeporte = deporte ?? "todos";
 
   function feedLink(overrides: {
     sort?: string;
@@ -403,6 +415,17 @@ export default async function FeedPage({
   function categoriaLink(c: string) {
     return feedLink({ categoria: c });
   }
+
+  const activeAdvancedFilterCount = [
+    activeDeporte !== "todos",
+    activeFilter === "siguiendo",
+    activeEstado !== "todos",
+    activeConfianza !== "todas",
+    activeCuota !== "todas",
+    activeCategoria !== "todas",
+    activePeriodo !== "proximas",
+    Boolean(searchTerm),
+  ].filter(Boolean).length;
 
   return (
     <TodosGanamosShell active="feed" searchValue={searchTerm} hideFooter>
@@ -479,90 +502,103 @@ export default async function FeedPage({
             </header>
 
             <div className="feed__filters">
-              <div className="cluster">
-                <Link
-                  className={`chip ${activeFilter === "todos" ? "is-active" : ""}`}
-                  href={filtroLink("todos")}
-                >
-                  Todos
-                </Link>
-                <Link
-                  className={`chip ${activeSort === "recientes" ? "is-active" : ""}`}
-                  href={sortLink("recientes")}
-                >
-                  Recientes
-                </Link>
-                <Link
-                  className={`chip ${activeSort === "votadas" ? "is-active" : ""}`}
-                  href={sortLink("votadas")}
-                >
-                  Mas votadas
-                </Link>
-                {DEPORTES.map((d) => (
+              <div className="feed__filters-main">
+                <div className="cluster feed__filters-primary">
                   <Link
-                    key={d}
-                    className={`chip ${activeDeporte.toLowerCase() === d.toLowerCase() ? "is-active" : ""}`}
-                    href={deporteLink(activeDeporte.toLowerCase() === d.toLowerCase() ? "todos" : d)}
+                    className={`chip ${activeFilter === "todos" ? "is-active" : ""}`}
+                    href={filtroLink("todos")}
                   >
-                    {d}
+                    Todos
                   </Link>
-                ))}
-                <Link
-                  className={`chip ${activeFilter === "siguiendo" ? "is-active" : ""}`}
-                  href={filtroLink("siguiendo")}
-                >
-                  Siguiendo
-                </Link>
-                <Link
-                  className={`chip ${activeEstado === "pendiente" ? "is-active" : ""}`}
-                  href={feedLink({ estado: activeEstado === "pendiente" ? "todos" : "pendiente" })}
-                >
-                  Pendientes
-                </Link>
-                <Link
-                  className={`chip ${activeEstado === "acertada" ? "is-active" : ""}`}
-                  href={feedLink({ estado: activeEstado === "acertada" ? "todos" : "acertada" })}
-                >
-                  Acertadas
-                </Link>
-                <Link
-                  className={`chip ${activeConfianza === "alta" ? "is-active" : ""}`}
-                  href={feedLink({ confianza: activeConfianza === "alta" ? "todas" : "alta" })}
-                >
-                  Confianza alta
-                </Link>
-                <Link
-                  className={`chip ${activeCuota === "2" ? "is-active" : ""}`}
-                  href={feedLink({ cuota: activeCuota === "2" ? "todas" : "2" })}
-                >
-                  Cuota 2+
-                </Link>
-                {CATEGORIAS.map(([value, label]) => (
                   <Link
-                    key={value}
-                    className={`chip ${activeCategoria === value ? "is-active" : ""}`}
-                    href={categoriaLink(activeCategoria === value ? "todas" : value)}
+                    className={`chip ${activeSort === "recientes" ? "is-active" : ""}`}
+                    href={sortLink("recientes")}
                   >
-                    {label}
+                    Recientes
                   </Link>
-                ))}
-                <Link
-                  className={`chip ${activePeriodo === "semana" ? "is-active" : ""}`}
-                  href={feedLink({ periodo: activePeriodo === "semana" ? "proximas" : "semana" })}
-                >
-                  {activePeriodo === "semana"
-                    ? "Ver solo las proximas"
-                    : "Ver todas las de la semana"}
+                  <Link
+                    className={`chip ${activeSort === "votadas" ? "is-active" : ""}`}
+                    href={sortLink("votadas")}
+                  >
+                    Mas votadas
+                  </Link>
+                </div>
+                <Link href="/nuevo" className="btn btn--primary">
+                  + Publicar
                 </Link>
-                {searchTerm && (
-                  <Link className="chip" href="/feed">
-                    Limpiar busqueda
-                  </Link>
-                )}
               </div>
-              <Link href="/nuevo" className="btn btn--primary">
-                + Publicar
-              </Link>
+
+              <details className="feed__advanced-filters" open={activeAdvancedFilterCount > 0}>
+                <summary>
+                  <span>Filtros</span>
+                  {activeAdvancedFilterCount > 0 && (
+                    <strong>{activeAdvancedFilterCount}</strong>
+                  )}
+                </summary>
+                <div className="cluster">
+                  {DEPORTES.map((d) => (
+                    <Link
+                      key={d}
+                      className={`chip ${activeDeporte.toLowerCase() === d.toLowerCase() ? "is-active" : ""}`}
+                      href={deporteLink(activeDeporte.toLowerCase() === d.toLowerCase() ? "todos" : d)}
+                    >
+                      {d}
+                    </Link>
+                  ))}
+                  <Link
+                    className={`chip ${activeFilter === "siguiendo" ? "is-active" : ""}`}
+                    href={filtroLink("siguiendo")}
+                  >
+                    Siguiendo
+                  </Link>
+                  <Link
+                    className={`chip ${activeEstado === "pendiente" ? "is-active" : ""}`}
+                    href={feedLink({ estado: activeEstado === "pendiente" ? "todos" : "pendiente" })}
+                  >
+                    Pendientes
+                  </Link>
+                  <Link
+                    className={`chip ${activeEstado === "acertada" ? "is-active" : ""}`}
+                    href={feedLink({ estado: activeEstado === "acertada" ? "todos" : "acertada" })}
+                  >
+                    Acertadas
+                  </Link>
+                  <Link
+                    className={`chip ${activeConfianza === "alta" ? "is-active" : ""}`}
+                    href={feedLink({ confianza: activeConfianza === "alta" ? "todas" : "alta" })}
+                  >
+                    Confianza alta
+                  </Link>
+                  <Link
+                    className={`chip ${activeCuota === "2" ? "is-active" : ""}`}
+                    href={feedLink({ cuota: activeCuota === "2" ? "todas" : "2" })}
+                  >
+                    Cuota 2+
+                  </Link>
+                  {CATEGORIAS.map(([value, label]) => (
+                    <Link
+                      key={value}
+                      className={`chip ${activeCategoria === value ? "is-active" : ""}`}
+                      href={categoriaLink(activeCategoria === value ? "todas" : value)}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                  <Link
+                    className={`chip ${activePeriodo === "semana" ? "is-active" : ""}`}
+                    href={feedLink({ periodo: activePeriodo === "semana" ? "proximas" : "semana" })}
+                  >
+                    {activePeriodo === "semana"
+                      ? "Ver solo las proximas"
+                      : "Ver todas las de la semana"}
+                  </Link>
+                  {searchTerm && (
+                    <Link className="chip" href="/feed">
+                      Limpiar busqueda
+                    </Link>
+                  )}
+                </div>
+              </details>
             </div>
 
             <div className="feed__scroll">

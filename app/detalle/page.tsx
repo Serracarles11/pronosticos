@@ -11,6 +11,7 @@ import { SettlementForm } from "../components/settlement-form";
 import { ProofImageModal } from "../components/proof-image-modal";
 import { ReportButton } from "../components/report-button";
 import { ShareButton } from "../components/share-button";
+import { DeletePronosticoButton } from "../components/delete-pronostico-button";
 import { formatPickCategory } from "@/lib/pronostico-meta";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
@@ -334,6 +335,7 @@ export default async function DetallePage({
                     <SaveButton pronosticoId={id} initialSaved={isSaved} />
                   )}
                   <ShareButton title={`${p.evento} - ${p.mercado}`} />
+                  {isOwner && <DeletePronosticoButton pronosticoId={id} />}
                   {user && !isOwner && <ReportButton pronosticoId={id} />}
                 </div>
               </footer>

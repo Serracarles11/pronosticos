@@ -70,6 +70,7 @@ npx vercel --prod
 - Autocompletado de usuarios con historial local y accesos rapidos.
 - Pronosticos publicos, para seguidores y borradores privados.
 - Bookmaker de referencia, cuota tomada y stake simulado.
+- Importacion de apuestas/combinadas desde captura con OCR y revision manual.
 - Link externo opcional para copiar la apuesta y categorias normalizadas por pick.
 - Likes, comentarios, guardados y capturas de cierre.
 - Seguimiento de perfiles publicos y solicitudes para cuentas privadas.
@@ -178,6 +179,47 @@ La web lee siempre de `football_matches` en Supabase. Si football-data.org devue
 
 `/nuevo` permite seleccionar un partido real. Al seleccionarlo se guarda `football_match_id`, `football_match_external_id`, evento, competicion y fecha del partido. Si no aparece el partido, el usuario puede seguir escribiendo el evento manualmente.
 
+## Importar desde captura
+
+`/nuevo` incluye la opcion "Importar desde captura" para subir una imagen de una apuesta o combinada y revisar los datos antes de publicar. La app no accede a cuentas de bookmakers, no hace scraping, no automatiza apuestas reales y nunca publica el pronostico sin confirmacion del usuario.
+
+Flujo:
+
+1. El usuario sube una captura PNG, JPG, JPEG o WEBP de maximo 5 MB.
+2. El navegador optimiza la imagen antes de subirla: lado ancho maximo 1280 px, alto maximo 2200 px, escala sin ampliar imagenes pequenas, escala de grises, contraste alto y salida JPEG optimizada.
+3. El backend valida autenticacion, tipo, tamano y limite de 10 imports por hora.
+4. La imagen se guarda en el bucket privado `bet-imports`.
+5. El endpoint `/api/bet-imports` ejecuta OCR con Tesseract.js en servidor.
+6. El parser intenta detectar bookmaker, selecciones, cuotas, cuota total, stake simulado, evento y fecha.
+7. La pantalla de revision muestra el texto OCR original y campos editables.
+8. Solo al pulsar "Publicar combinada" se crea el pronostico.
+
+Limitaciones del OCR:
+
+- El OCR puede confundir caracteres, cuotas, nombres de equipos o fechas.
+- Las selecciones detectadas son una ayuda inicial, no una fuente definitiva.
+- El usuario debe revisar y corregir todos los campos antes de publicar.
+- Ganancias potenciales o retornos no se usan como cuota.
+
+Privacidad:
+
+- Las capturas se almacenan en `bet-imports`, un bucket privado.
+- No se generan URLs publicas para esas imagenes.
+- La tabla `bet_imports` y sus selecciones tienen RLS: cada usuario ve solo sus imports; admin puede revisar si existe `profiles.role = 'admin'`.
+
+Arquitectura OCR:
+
+- `lib/bet-import/ocr.ts` define la interfaz `OcrProvider`.
+- La primera implementacion es `TesseractOcrProvider`.
+- Por defecto usa `BET_IMPORT_OCR_LANGS=spa` para ir mas rapido. Si necesitas mas precision en capturas inglesas, configura `BET_IMPORT_OCR_LANGS=spa+eng`.
+- `CloudOcrProvider` queda como placeholder para migrar despues a Google Vision, AWS Textract o Azure OCR sin rehacer la UI.
+
+Aplica la migracion:
+
+```bash
+supabase/17_import_betslip_ocr.sql
+```
+
 ## Compartir
 
 `ShareButton`, `ShareMenu` y `CopyLinkButton` permiten compartir perfiles y picks mediante:
@@ -227,7 +269,9 @@ El panel `/admin` incluye la seccion "Anti-spam" para revisar eventos, aprobar/r
 - `16_football_data_matches.sql`: partidos football-data.org, logs de sync y relacion con pronosticos.
 - `16_social_links_profile_fallback.sql`: fallback JSON para redes si la tabla social no esta aplicada.
 - `17_social_links_only_core.sql`: limita redes sociales a TikTok, Instagram y X.
+- `17_import_betslip_ocr.sql`: imports OCR de capturas, selecciones importadas y bucket privado `bet-imports`.
 - `18_add_mundial_competition.sql`: anade Mundial como competicion.
+- `19_notificaciones_eventos.sql`: triggers de notificaciones para publicaciones, likes, comentarios, guardados, seguimientos y resultados.
 
 ## Siguientes modulos
 

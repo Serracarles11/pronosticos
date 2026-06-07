@@ -4,6 +4,10 @@ import type {
   InternalMatchStatus,
   NormalizedFootballMatch,
 } from "./types";
+import {
+  localizeFootballCompetitionName,
+  localizeFootballTeamName,
+} from "./localize.ts";
 
 function optionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -32,6 +36,8 @@ export function normalizeFootballDataMatch(rawMatch: FootballDataRawMatch): Norm
   const kickoffAt = optionalIso(rawMatch.utcDate);
   const homeTeamName = optionalString(rawMatch.homeTeam?.name);
   const awayTeamName = optionalString(rawMatch.awayTeam?.name);
+  const homeTeamShortName = optionalString(rawMatch.homeTeam?.shortName ?? rawMatch.homeTeam?.tla);
+  const awayTeamShortName = optionalString(rawMatch.awayTeam?.shortName ?? rawMatch.awayTeam?.tla);
 
   if (!externalId || !kickoffAt || !homeTeamName || !awayTeamName) {
     throw new Error("Partido football-data incompleto.");
@@ -41,15 +47,15 @@ export function normalizeFootballDataMatch(rawMatch: FootballDataRawMatch): Norm
     external_id: externalId,
     provider: "football-data.org",
     competition_code: optionalString(rawMatch.competition?.code),
-    competition_name: optionalString(rawMatch.competition?.name),
+    competition_name: localizeFootballCompetitionName(optionalString(rawMatch.competition?.name)),
     competition_emblem: optionalString(rawMatch.competition?.emblem),
     home_team_id: rawMatch.homeTeam?.id == null ? null : String(rawMatch.homeTeam.id),
-    home_team_name: homeTeamName,
-    home_team_short_name: optionalString(rawMatch.homeTeam?.shortName ?? rawMatch.homeTeam?.tla),
+    home_team_name: localizeFootballTeamName(homeTeamName),
+    home_team_short_name: homeTeamShortName ? localizeFootballTeamName(homeTeamShortName) : null,
     home_team_crest: optionalString(rawMatch.homeTeam?.crest),
     away_team_id: rawMatch.awayTeam?.id == null ? null : String(rawMatch.awayTeam.id),
-    away_team_name: awayTeamName,
-    away_team_short_name: optionalString(rawMatch.awayTeam?.shortName ?? rawMatch.awayTeam?.tla),
+    away_team_name: localizeFootballTeamName(awayTeamName),
+    away_team_short_name: awayTeamShortName ? localizeFootballTeamName(awayTeamShortName) : null,
     away_team_crest: optionalString(rawMatch.awayTeam?.crest),
     kickoff_at: kickoffAt,
     status: mapFootballDataStatus(rawMatch.status),
