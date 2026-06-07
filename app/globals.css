@@ -684,6 +684,8 @@ button {
 
 .age-gate__panel {
   width: min(460px, 100%);
+  max-width: 100%;
+  min-width: 0;
   padding: 28px;
   border-radius: var(--r-lg);
   background: #fff;
@@ -2315,6 +2317,12 @@ button {
   padding: 48px 24px 80px;
 }
 
+.publish,
+.ranking {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 .publish__back {
   font-size: 13px;
   color: var(--text-3);
@@ -2429,6 +2437,8 @@ button {
 }
 
 .match-picker {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   padding: 14px;
   border: 1px solid var(--border);
@@ -2478,6 +2488,7 @@ button {
 
 .match-picker__results {
   display: grid;
+  min-width: 0;
   gap: 8px;
   margin-top: 10px;
 }
@@ -3779,6 +3790,28 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .age-gate {
+    align-items: flex-end;
+    padding: 12px;
+  }
+
+  .age-gate__panel {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    padding: 22px 18px;
+  }
+
+  .age-gate__actions {
+    flex-direction: column;
+  }
+
+  .age-gate__actions .btn {
+    width: 100%;
+    white-space: normal;
+  }
+
   .auth-panel--left {
     display: none;
   }
@@ -3796,6 +3829,10 @@ button {
    ============================================================ */
 
 @media (max-width: 1024px) {
+  body {
+    overflow-x: hidden;
+  }
+
   .feed__inner,
   .hero__grid,
   .detail__inner,
@@ -3813,6 +3850,38 @@ button {
 
   .feed__filter-mobile {
     display: inline-flex;
+  }
+
+  .publish__inner {
+    gap: 28px;
+  }
+
+  .match-picker {
+    overflow: hidden;
+  }
+
+  .match-picker__filters {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .match-option {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .match-option__teams {
+    width: 100%;
+  }
+
+  .match-option__meta {
+    flex-basis: auto;
+    max-width: 100%;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -4286,17 +4355,31 @@ button {
 
   .match-option {
     align-items: stretch;
-    flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
 
   .match-option__teams {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    align-items: center;
     width: 100%;
+    gap: 5px 8px;
+  }
+
+  .match-option__teams span {
+    grid-column: 1 / -1;
+    justify-self: center;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .match-option__teams img {
+    width: 22px;
+    height: 22px;
   }
 
   .match-option__meta {
-    flex-basis: auto;
-    max-width: 100%;
+    width: 100%;
     text-align: left;
   }
 
@@ -4420,10 +4503,10 @@ button {
 
   .podium__card {
     display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-columns: 38px 56px minmax(0, 1fr);
     align-items: center;
     column-gap: 12px;
-    row-gap: 4px;
+    row-gap: 8px;
   }
 
   .podium__pos {
@@ -4433,22 +4516,32 @@ button {
   }
 
   .podium__card .avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
     grid-row: 1 / span 2;
   }
 
-  .podium__body,
-  .podium__stats {
+  .podium__body {
     grid-column: 3;
   }
 
   .podium__stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 10px;
-    justify-content: flex-start;
+    width: 100%;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
     margin-left: 0;
-    min-width: 0;
     text-align: left;
+  }
+
+  .podium__stats > * {
+    min-width: 0;
+    padding: 7px 8px;
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    overflow-wrap: anywhere;
   }
 
   .rank-table__row {
