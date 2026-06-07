@@ -4995,8 +4995,15 @@ button {
     transform-origin: right center;
   }
 
-  .mobile-bottom-nav a span {
+  .mobile-bottom-nav a span:not(.mobile-bottom-nav__publish-icon) {
     display: none;
+  }
+
+  .mobile-bottom-nav .mobile-bottom-nav__publish-icon {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    margin-top: -22px;
   }
 
   .mobile-bottom-nav {
