@@ -6,8 +6,13 @@ import { LikeButton } from "../components/like-button";
 import { FollowButton } from "../components/follow-button";
 import { SaveButton } from "../components/save-button";
 import { CommentLink } from "../components/comment-link";
+import { FeedFilterDropdown, type FeedFilterOption } from "../components/feed-filter-dropdown";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
+import {
+  localizeFootballCompetitionName,
+  localizeFootballTeamName,
+} from "@/lib/football-data/localize";
 
 const DEPORTES = ["Futbol", "Tenis", "NBA", "eSports", "Combinadas", "Otros"];
 const CATEGORIAS = [
@@ -96,6 +101,26 @@ function currentMadridWeekRange(now = new Date()) {
   end.setUTCDate(end.getUTCDate() + 7);
 
   return { start: madridMidnightIso(start), end: madridMidnightIso(end) };
+}
+
+function formatSidebarMatchDate(value: string) {
+  return new Intl.DateTimeFormat("es-ES", {
+    timeZone: "Europe/Madrid",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function stableRandomScore(value: string, seed: string) {
+  let hash = 2166136261;
+  const input = `${seed}:${value}`;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 export default async function FeedPage({
@@ -362,6 +387,37 @@ export default async function FeedPage({
     }
   }
 
+  type SidebarMatch = {
+    id: string;
+    competition_code: string | null;
+    competition_name: string | null;
+    home_team_name: string;
+    away_team_name: string;
+    kickoff_at: string;
+    status: string;
+  };
+  let sidebarMatches: SidebarMatch[] = [];
+  const { data: sidebarMatchRows, error: sidebarMatchError } = await supabase
+    .from("football_matches")
+    .select("id, competition_code, competition_name, home_team_name, away_team_name, kickoff_at, status")
+    .gte("kickoff_at", new Date().toISOString())
+    .neq("status", "finished")
+    .order("kickoff_at", { ascending: true })
+    .limit(30);
+
+  if (!sidebarMatchError) {
+    const seed = new Date().toISOString().slice(0, 10);
+    sidebarMatches = ((sidebarMatchRows ?? []) as SidebarMatch[])
+      .map((match) => ({
+        ...match,
+        competition_name: localizeFootballCompetitionName(match.competition_name),
+        home_team_name: localizeFootballTeamName(match.home_team_name),
+        away_team_name: localizeFootballTeamName(match.away_team_name),
+      }))
+      .sort((a, b) => stableRandomScore(a.id, seed) - stableRandomScore(b.id, seed))
+      .slice(0, 5);
+  }
+
   const followedUserIdSet = new Set(followedUserIds);
   const requestedUserIdSet = new Set(requestedUserIds);
 
@@ -426,6 +482,68 @@ export default async function FeedPage({
     activePeriodo !== "proximas",
     Boolean(searchTerm),
   ].filter(Boolean).length;
+
+  const filterOptions: FeedFilterOption[] = [
+    ...DEPORTES.map((d) => ({
+      href: deporteLink(activeDeporte.toLowerCase() === d.toLowerCase() ? "todos" : d),
+      label: d,
+      active: activeDeporte.toLowerCase() === d.toLowerCase(),
+      icon: "plus" as const,
+    })),
+    {
+      href: filtroLink("siguiendo"),
+      label: "Siguiendo",
+      active: activeFilter === "siguiendo",
+      icon: "share",
+    },
+    {
+      href: feedLink({ estado: activeEstado === "pendiente" ? "todos" : "pendiente" }),
+      label: "Pendientes",
+      active: activeEstado === "pendiente",
+      icon: "edit",
+    },
+    {
+      href: feedLink({ estado: activeEstado === "acertada" ? "todos" : "acertada" }),
+      label: "Acertadas",
+      active: activeEstado === "acertada",
+      icon: "edit",
+    },
+    {
+      href: feedLink({ confianza: activeConfianza === "alta" ? "todas" : "alta" }),
+      label: "Confianza alta",
+      active: activeConfianza === "alta",
+      icon: "plus",
+    },
+    {
+      href: feedLink({ cuota: activeCuota === "2" ? "todas" : "2" }),
+      label: "Cuota 2+",
+      active: activeCuota === "2",
+      icon: "plus",
+    },
+    ...CATEGORIAS.map(([value, label]) => ({
+      href: categoriaLink(activeCategoria === value ? "todas" : value),
+      label,
+      active: activeCategoria === value,
+      icon: "plus" as const,
+    })),
+    {
+      href: feedLink({ periodo: activePeriodo === "semana" ? "proximas" : "semana" }),
+      label: activePeriodo === "semana" ? "Solo proximas" : "Toda la semana",
+      active: activePeriodo === "semana",
+      icon: "edit",
+    },
+    ...(searchTerm
+      ? [
+          {
+            href: "/feed",
+            label: "Limpiar busqueda",
+            active: false,
+            closeOnSelect: true,
+            icon: "trash" as const,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <TodosGanamosShell active="feed" searchValue={searchTerm} hideFooter>
@@ -528,77 +646,10 @@ export default async function FeedPage({
                 </Link>
               </div>
 
-              <details className="feed__advanced-filters" open={activeAdvancedFilterCount > 0}>
-                <summary>
-                  <span>Filtros</span>
-                  {activeAdvancedFilterCount > 0 && (
-                    <strong>{activeAdvancedFilterCount}</strong>
-                  )}
-                </summary>
-                <div className="cluster">
-                  {DEPORTES.map((d) => (
-                    <Link
-                      key={d}
-                      className={`chip ${activeDeporte.toLowerCase() === d.toLowerCase() ? "is-active" : ""}`}
-                      href={deporteLink(activeDeporte.toLowerCase() === d.toLowerCase() ? "todos" : d)}
-                    >
-                      {d}
-                    </Link>
-                  ))}
-                  <Link
-                    className={`chip ${activeFilter === "siguiendo" ? "is-active" : ""}`}
-                    href={filtroLink("siguiendo")}
-                  >
-                    Siguiendo
-                  </Link>
-                  <Link
-                    className={`chip ${activeEstado === "pendiente" ? "is-active" : ""}`}
-                    href={feedLink({ estado: activeEstado === "pendiente" ? "todos" : "pendiente" })}
-                  >
-                    Pendientes
-                  </Link>
-                  <Link
-                    className={`chip ${activeEstado === "acertada" ? "is-active" : ""}`}
-                    href={feedLink({ estado: activeEstado === "acertada" ? "todos" : "acertada" })}
-                  >
-                    Acertadas
-                  </Link>
-                  <Link
-                    className={`chip ${activeConfianza === "alta" ? "is-active" : ""}`}
-                    href={feedLink({ confianza: activeConfianza === "alta" ? "todas" : "alta" })}
-                  >
-                    Confianza alta
-                  </Link>
-                  <Link
-                    className={`chip ${activeCuota === "2" ? "is-active" : ""}`}
-                    href={feedLink({ cuota: activeCuota === "2" ? "todas" : "2" })}
-                  >
-                    Cuota 2+
-                  </Link>
-                  {CATEGORIAS.map(([value, label]) => (
-                    <Link
-                      key={value}
-                      className={`chip ${activeCategoria === value ? "is-active" : ""}`}
-                      href={categoriaLink(activeCategoria === value ? "todas" : value)}
-                    >
-                      {label}
-                    </Link>
-                  ))}
-                  <Link
-                    className={`chip ${activePeriodo === "semana" ? "is-active" : ""}`}
-                    href={feedLink({ periodo: activePeriodo === "semana" ? "proximas" : "semana" })}
-                  >
-                    {activePeriodo === "semana"
-                      ? "Ver solo las proximas"
-                      : "Ver todas las de la semana"}
-                  </Link>
-                  {searchTerm && (
-                    <Link className="chip" href="/feed">
-                      Limpiar busqueda
-                    </Link>
-                  )}
-                </div>
-              </details>
+              <FeedFilterDropdown
+                activeCount={activeAdvancedFilterCount}
+                options={filterOptions}
+              />
             </div>
 
             <div className="feed__scroll">
@@ -663,6 +714,8 @@ export default async function FeedPage({
                 const isSaved = userSavedIds.has(item.id as string);
                 const userId = item.user_id as string;
                 const canFollow = !!user && user.id !== userId;
+                const explanation = String(item.explicacion ?? "").trim();
+                const explanationPreview = explanation.slice(0, 120);
 
                 return (
                   <article
@@ -729,10 +782,10 @@ export default async function FeedPage({
                         <Confidence value={Number(item.confianza)} />
                       </div>
                     </div>
-                    {item.explicacion != null && (
+                    {explanationPreview.length > 0 && (
                       <p className="pred__body">
-                        {String(item.explicacion).slice(0, 120)}
-                        {String(item.explicacion).length > 120 ? "..." : ""}
+                        {explanationPreview}
+                        {explanation.length > 120 ? "..." : ""}
                       </p>
                     )}
                     {profile?.is_private && !followedUserIdSet.has(userId) && user?.id !== userId && (
@@ -773,20 +826,30 @@ export default async function FeedPage({
 
           <aside className="feed__side feed__side--right hide-mobile">
             <div className="side-section">
-              <h4 className="side-section__title">Tendencias</h4>
-              <ul className="trends">
-                {DEPORTES.slice(0, 4).map((d) => (
-                  <li key={d}>
-                    <Link
-                      className="mono trend__tag"
-                      href={deporteLink(d)}
-                    >
-                      #{d}
-                    </Link>
-                    <span className="trend__sub">Ver pronosticos</span>
-                  </li>
-                ))}
-              </ul>
+              <h4 className="side-section__title">Partidos guardados</h4>
+              {sidebarMatches.length > 0 ? (
+                <ul className="sidebar-matches">
+                  {sidebarMatches.map((match) => (
+                    <li key={match.id}>
+                      <Link className="sidebar-match" href={`/nuevo?matchId=${match.id}`}>
+                        <span className="sidebar-match__teams">
+                          <strong>{match.home_team_name}</strong>
+                          <span>vs</span>
+                          <strong>{match.away_team_name}</strong>
+                        </span>
+                        <span className="sidebar-match__meta">
+                          {match.competition_name ?? match.competition_code ?? "Futbol"} ·{" "}
+                          {formatSidebarMatchDate(match.kickoff_at)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted side-empty">
+                  No hay partidos futuros guardados.
+                </p>
+              )}
             </div>
             <div className="side-section">
               <Link href="/nuevo" className="btn btn--primary btn--flex">

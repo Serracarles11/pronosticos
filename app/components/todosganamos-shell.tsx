@@ -15,6 +15,76 @@ type TodosGanamosShellProps = {
   children: ReactNode;
 };
 
+const WORLDCUP_FLAGS = [
+  ["CA", "Canada"],
+  ["MX", "Mexico"],
+  ["US", "Estados Unidos"],
+  ["AU", "Australia"],
+  ["IQ", "Irak"],
+  ["IR", "Iran"],
+  ["JP", "Japon"],
+  ["JO", "Jordania"],
+  ["KR", "Corea del Sur"],
+  ["QA", "Qatar"],
+  ["SA", "Arabia Saudi"],
+  ["UZ", "Uzbekistan"],
+  ["DZ", "Argelia"],
+  ["CV", "Cabo Verde"],
+  ["CD", "RD Congo"],
+  ["CI", "Costa de Marfil"],
+  ["EG", "Egipto"],
+  ["GH", "Ghana"],
+  ["MA", "Marruecos"],
+  ["SN", "Senegal"],
+  ["ZA", "Sudafrica"],
+  ["TN", "Tunez"],
+  ["CW", "Curazao"],
+  ["HT", "Haiti"],
+  ["PA", "Panama"],
+  ["AR", "Argentina"],
+  ["BR", "Brasil"],
+  ["CO", "Colombia"],
+  ["EC", "Ecuador"],
+  ["PY", "Paraguay"],
+  ["UY", "Uruguay"],
+  ["NZ", "Nueva Zelanda"],
+  ["AT", "Austria"],
+  ["BE", "Belgica"],
+  ["BA", "Bosnia y Herzegovina"],
+  ["HR", "Croacia"],
+  ["CZ", "Chequia"],
+  ["ENG", "Inglaterra"],
+  ["FR", "Francia"],
+  ["DE", "Alemania"],
+  ["NL", "Paises Bajos"],
+  ["NO", "Noruega"],
+  ["PT", "Portugal"],
+  ["SCO", "Escocia"],
+  ["ES", "Espana"],
+  ["SE", "Suecia"],
+  ["CH", "Suiza"],
+  ["TR", "Turquia"],
+] as const;
+
+function flagEmoji(code: string) {
+  if (code === "ENG") {
+    return String.fromCodePoint(0x1f3f4, 0xe0067, 0xe0062, 0xe0065, 0xe006e, 0xe0067, 0xe007f);
+  }
+  if (code === "SCO") {
+    return String.fromCodePoint(0x1f3f4, 0xe0067, 0xe0062, 0xe0073, 0xe0063, 0xe0074, 0xe007f);
+  }
+
+  return code
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(0x1f1e6 + char.charCodeAt(0) - 65));
+}
+
+function flagImageCode(code: string) {
+  if (code === "ENG") return "gb-eng";
+  if (code === "SCO") return "gb-sct";
+  return code.toLowerCase();
+}
+
 function NavLink({
   href,
   active,
@@ -114,9 +184,29 @@ export function TodosGanamosShell({
         </div>
       </header>
       <div className="legal-strip">
-        <span>18+</span>
-        <span>Sin dinero real</span>
-        <span>Juega y debate con responsabilidad</span>
+        <div className="legal-strip__flags" aria-hidden="true">
+          <div className="legal-strip__flag-track">
+            {[...WORLDCUP_FLAGS, ...WORLDCUP_FLAGS].map(([code, label], index) => (
+              <span className="legal-strip__flag" key={`${code}-${index}`} title={label}>
+                <img
+                  alt=""
+                  decoding="async"
+                  draggable={false}
+                  height={28}
+                  loading="lazy"
+                  src={`https://flagcdn.com/w40/${flagImageCode(code)}.png`}
+                  width={40}
+                />
+                <span className="legal-strip__flag-fallback">{flagEmoji(code)}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="legal-strip__content">
+          <span>18+</span>
+          <span>Sin dinero real</span>
+          <span>Juega y debate con responsabilidad</span>
+        </div>
       </div>
       {children}
       <ShellBetaFeedback />

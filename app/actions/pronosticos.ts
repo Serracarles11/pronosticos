@@ -48,7 +48,7 @@ export async function createPronostico(formData: FormData) {
   const explicacion = formData.get("explicacion") as string;
   let fechaEvento = formData.get("fecha_evento") as string;
   const eventId = String(formData.get("event_id") ?? "").trim();
-  const footballMatchId = String(formData.get("football_match_id") ?? "").trim();
+  let footballMatchId = String(formData.get("football_match_id") ?? "").trim();
   let footballMatchExternalId = String(formData.get("football_match_external_id") ?? "").trim();
   const bookmaker = String(formData.get("bookmaker") ?? "").trim().slice(0, 40);
   const stakeSimulado = parseFloat(String(formData.get("stake_simulado") ?? "1"));
@@ -93,18 +93,64 @@ export async function createPronostico(formData: FormData) {
 
   const picksJson = formData.get("picks_json") as string | null;
   if (picksJson) {
-    type PickItem = { mercado: string; cuota: string };
+    type PickItem = {
+      mercado: string;
+      cuota: string;
+      eventName?: string;
+      competition?: string;
+      kickoffAt?: string;
+      footballMatchId?: string;
+      footballMatchExternalId?: string;
+    };
     const picks: PickItem[] = JSON.parse(picksJson);
     if (!picks.length || picks.some((p) => !p.mercado || !p.cuota)) {
       return { error: "Rellena todos los campos de cada seleccion." };
     }
+    const cleanPicks = picks.map((pick) => ({
+      mercado: String(pick.mercado ?? "").trim(),
+      cuota: String(pick.cuota ?? "").trim(),
+      eventName: String(pick.eventName ?? "").trim(),
+      competition: String(pick.competition ?? "").trim(),
+      kickoffAt: String(pick.kickoffAt ?? "").trim(),
+      footballMatchId: String(pick.footballMatchId ?? "").trim(),
+      footballMatchExternalId: String(pick.footballMatchExternalId ?? "").trim(),
+    }));
+    const pickEvents = Array.from(new Set(cleanPicks.map((pick) => pick.eventName).filter(Boolean)));
+    const pickCompetitions = Array.from(
+      new Set(cleanPicks.map((pick) => pick.competition).filter(Boolean))
+    );
+    const pickKickoffs = cleanPicks
+      .map((pick) => (pick.kickoffAt ? new Date(pick.kickoffAt).getTime() : NaN))
+      .filter(Number.isFinite);
+
     if (picks.length === 1) {
-      mercado = picks[0].mercado;
-      cuota = parseFloat(picks[0].cuota);
+      const pick = cleanPicks[0];
+      mercado = pick.mercado;
+      cuota = parseFloat(pick.cuota);
+      if (pick.eventName) evento = pick.eventName;
+      if (pick.competition) competicion = pick.competition;
+      if (pick.kickoffAt) fechaEvento = pick.kickoffAt;
+      if (pick.footballMatchId) footballMatchId = pick.footballMatchId;
+      if (pick.footballMatchExternalId) footballMatchExternalId = pick.footballMatchExternalId;
     } else {
-      mercado = picks.map((p) => p.mercado).join(" + ");
-      cuota = picks.reduce((acc, p) => acc * parseFloat(p.cuota), 1);
+      mercado = cleanPicks
+        .map((pick) => [pick.eventName, pick.mercado].filter(Boolean).join(": "))
+        .join(" + ");
+      cuota = cleanPicks.reduce((acc, pick) => acc * parseFloat(pick.cuota), 1);
       cuota = Math.round(cuota * 100) / 100;
+      if (pickEvents.length > 0) {
+        evento = pickEvents.length <= 2 ? pickEvents.join(" + ") : `Combinada (${pickEvents.length} partidos)`;
+      }
+      if (pickCompetitions.length === 1) {
+        competicion = pickCompetitions[0];
+      } else if (pickCompetitions.length > 1) {
+        competicion = "Combinada";
+      }
+      if (pickKickoffs.length > 0) {
+        fechaEvento = new Date(Math.max(...pickKickoffs)).toISOString();
+      }
+      footballMatchId = "";
+      footballMatchExternalId = "";
     }
   } else {
     mercado = formData.get("mercado") as string;

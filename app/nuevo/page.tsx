@@ -10,7 +10,15 @@ import { formatPickCategory, normalizePickCategories } from "@/lib/pronostico-me
 import type { FootballMatchPickerItem } from "@/lib/football-data/types";
 import type { BetImportReviewPayload, ImportedBetSelection } from "@/lib/bet-import/types";
 
-type Pick = { mercado: string; cuota: string };
+type Pick = {
+  mercado: string;
+  cuota: string;
+  eventName?: string;
+  competition?: string;
+  kickoffAt?: string;
+  footballMatchId?: string;
+  footballMatchExternalId?: string;
+};
 type ImportProgress = {
   value: number;
   label: string;
@@ -196,6 +204,44 @@ function formatMatchStatus(value: string) {
   return labels[value] ?? value;
 }
 
+function matchEventLabel(match: FootballMatchPickerItem) {
+  return `${match.home_team_name} vs ${match.away_team_name}`;
+}
+
+function buildPickEventLabel(picks: Pick[]) {
+  const events = Array.from(
+    new Set(
+      picks
+        .map((pick) => (pick.eventName ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+  if (events.length === 0) return "";
+  if (events.length <= 2) return events.join(" + ");
+  return `Combinada (${events.length} partidos)`;
+}
+
+function buildPickCompetitionLabel(picks: Pick[], fallback: string) {
+  const competitions = Array.from(
+    new Set(
+      picks
+        .map((pick) => (pick.competition ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+  if (competitions.length === 0) return fallback;
+  if (competitions.length === 1) return competitions[0];
+  return "Combinada";
+}
+
+function latestPickKickoff(picks: Pick[]) {
+  const timestamps = picks
+    .map((pick) => (pick.kickoffAt ? new Date(pick.kickoffAt).getTime() : NaN))
+    .filter(Number.isFinite);
+  if (timestamps.length === 0) return "";
+  return toDatetimeLocal(new Date(Math.max(...timestamps)).toISOString());
+}
+
 export default function NuevoPage() {
   const [confianza, setConfianza] = useState(4);
   const [picks, setPicks] = useState<Pick[]>([{ mercado: "", cuota: "" }]);
@@ -211,8 +257,7 @@ export default function NuevoPage() {
   const [competicion, setCompeticion] = useState("LaLiga");
   const [evento, setEvento] = useState("");
   const [fechaEvento, setFechaEvento] = useState("");
-  const [selectedMatch, setSelectedMatch] = useState<FootballMatchPickerItem | null>(null);
-  const [matchPickerOpen, setMatchPickerOpen] = useState(false);
+  const [matchPickerPickIndex, setMatchPickerPickIndex] = useState<number | null>(null);
   const [matchQuery, setMatchQuery] = useState("");
   const [matchDate, setMatchDate] = useState("");
   const [matchResults, setMatchResults] = useState<FootballMatchPickerItem[]>([]);
@@ -243,7 +288,21 @@ export default function NuevoPage() {
   }
 
   function addPick() {
-    setPicks((prev) => [...prev, { mercado: "", cuota: "" }]);
+    setPicks((prev) => {
+      const lastPick = prev.at(-1);
+      return [
+        ...prev,
+        {
+          mercado: "",
+          cuota: "",
+          eventName: lastPick?.eventName ?? "",
+          competition: lastPick?.competition ?? "",
+          kickoffAt: lastPick?.kickoffAt ?? "",
+          footballMatchId: lastPick?.footballMatchId ?? "",
+          footballMatchExternalId: lastPick?.footballMatchExternalId ?? "",
+        },
+      ];
+    });
   }
 
   function removePick(idx: number) {
@@ -438,9 +497,29 @@ export default function NuevoPage() {
     });
   }
 
-  function toggleMatchPicker() {
-    if (matchPickerOpen) setMatchLoading(false);
-    setMatchPickerOpen(!matchPickerOpen);
+  function toggleMatchPicker(idx: number) {
+    setMatchPickerPickIndex((current) => {
+      const next = current === idx ? null : idx;
+      if (next === null) setMatchLoading(false);
+      return next;
+    });
+  }
+
+  function clearPickMatch(idx: number) {
+    setPicks((prev) =>
+      prev.map((pick, pickIdx) =>
+        pickIdx === idx
+          ? {
+              ...pick,
+              eventName: "",
+              competition: "",
+              kickoffAt: "",
+              footballMatchId: "",
+              footballMatchExternalId: "",
+            }
+          : pick
+      )
+    );
   }
 
   function toggleCategory(category: string) {
@@ -453,7 +532,12 @@ export default function NuevoPage() {
     });
   }
 
+  const matchPickerOpen = matchPickerPickIndex !== null;
   const totalOdds = combinedOdds(picks);
+  const picksEventLabel = buildPickEventLabel(picks);
+  const picksCompetitionLabel = buildPickCompetitionLabel(picks, competicion);
+  const picksLatestKickoff = latestPickKickoff(picks);
+  const previewEventLabel = picksEventLabel || preview.evento;
   const previewMercado =
     picks.length === 1
       ? picks[0].mercado || "..."
@@ -482,19 +566,35 @@ export default function NuevoPage() {
     : null;
 
   function applyFootballMatch(match: FootballMatchPickerItem) {
-    const eventLabel = `${match.home_team_name} vs ${match.away_team_name}`;
+    const eventLabel = matchEventLabel(match);
     const matchCompetitionName = match.competition_name ?? match.competition_code ?? "Futbol";
-    setSelectedMatch(match);
-    setMatchPickerOpen(false);
+    const targetPickIndex = matchPickerPickIndex ?? 0;
+    setPicks((prev) =>
+      prev.map((pick, idx) =>
+        idx === targetPickIndex
+          ? {
+              ...pick,
+              eventName: eventLabel,
+              competition: matchCompetitionName,
+              kickoffAt: match.kickoff_at,
+              footballMatchId: match.id,
+              footballMatchExternalId: match.external_id,
+            }
+          : pick
+      )
+    );
+    setMatchPickerPickIndex(null);
     setMatchLoading(false);
     setDeporte("Futbol");
-    setCompeticion(matchCompetitionName);
-    setEvento(eventLabel);
-    setFechaEvento(toDatetimeLocal(match.kickoff_at));
+    if (picks.length === 1 || targetPickIndex === 0) {
+      setCompeticion(matchCompetitionName);
+      setEvento(eventLabel);
+      setFechaEvento(toDatetimeLocal(match.kickoff_at));
+    }
     setPreview((current) => ({
       ...current,
-      evento: eventLabel,
-      competicion: matchCompetitionName,
+      evento: targetPickIndex === 0 ? eventLabel : buildPickEventLabel(picks) || eventLabel,
+      competicion: targetPickIndex === 0 ? matchCompetitionName : buildPickCompetitionLabel(picks, matchCompetitionName),
     }));
   }
 
@@ -507,7 +607,33 @@ export default function NuevoPage() {
     fetch(`/api/football-matches/search?id=${encodeURIComponent(matchId)}&limit=1`)
       .then((response) => response.json())
       .then((payload: { matches?: FootballMatchPickerItem[] }) => {
-        if (!ignore && payload.matches?.[0]) applyFootballMatch(payload.matches[0]);
+        const match = payload.matches?.[0];
+        if (ignore || !match) return;
+        const eventLabel = matchEventLabel(match);
+        const matchCompetitionName = match.competition_name ?? match.competition_code ?? "Futbol";
+        setPicks((prev) =>
+          prev.map((pick, idx) =>
+            idx === 0
+              ? {
+                  ...pick,
+                  eventName: eventLabel,
+                  competition: matchCompetitionName,
+                  kickoffAt: match.kickoff_at,
+                  footballMatchId: match.id,
+                  footballMatchExternalId: match.external_id,
+                }
+              : pick
+          )
+        );
+        setDeporte("Futbol");
+        setCompeticion(matchCompetitionName);
+        setEvento(eventLabel);
+        setFechaEvento(toDatetimeLocal(match.kickoff_at));
+        setPreview((current) => ({
+          ...current,
+          evento: eventLabel,
+          competicion: matchCompetitionName,
+        }));
       })
       .catch(() => {
         if (!ignore) setMatchError("No se pudo cargar el partido seleccionado.");
@@ -558,11 +684,14 @@ export default function NuevoPage() {
       ignore = true;
       window.clearTimeout(timeout);
     };
-  }, [matchDate, matchPickerOpen, matchQuery]);
+  }, [matchDate, matchPickerOpen, matchPickerPickIndex, matchQuery]);
 
   async function handleSubmit(formData: FormData) {
     formData.set("confianza", String(confianza));
     formData.set("picks_json", JSON.stringify(picks));
+    if (picksEventLabel) formData.set("evento", picksEventLabel);
+    if (picksCompetitionLabel) formData.set("competicion", picksCompetitionLabel);
+    if (picksLatestKickoff) formData.set("fecha_evento", picksLatestKickoff);
     setError(null);
     startTransition(async () => {
       const result = await createPronostico(formData);
@@ -969,97 +1098,6 @@ export default function NuevoPage() {
             </section>
 
             <form action={handleSubmit} id="pred-form">
-              <div className="field match-picker">
-                <div className="match-picker__head">
-                  <div>
-                    <label className="field__label" htmlFor="match_search">
-                      Partidos del Mundial
-                    </label>
-                    <div className="field__hint">
-                      Opcional. Abre la lista para seleccionar un partido sincronizado del Mundial o escribe el evento manualmente.
-                    </div>
-                  </div>
-                  <div className="match-picker__actions">
-                    <button
-                      aria-controls="world-cup-match-panel"
-                      aria-expanded={matchPickerOpen}
-                      className="btn btn--ghost"
-                      onClick={toggleMatchPicker}
-                      type="button"
-                    >
-                      {matchPickerOpen ? "Ocultar partidos" : "Ver partidos del Mundial"}
-                    </button>
-                    {selectedMatch && (
-                      <button
-                        className="btn btn--ghost"
-                        onClick={() => setSelectedMatch(null)}
-                        type="button"
-                      >
-                        Quitar partido
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <input type="hidden" name="football_match_id" value={selectedMatch?.id ?? ""} />
-                <input
-                  type="hidden"
-                  name="football_match_external_id"
-                  value={selectedMatch?.external_id ?? ""}
-                />
-                {selectedMatch && (
-                  <div className="match-picker__selected">
-                    <strong>{selectedMatch.home_team_name} vs {selectedMatch.away_team_name}</strong>
-                    <span>{selectedMatch.competition_name ?? selectedMatch.competition_code} - {formatMatchDate(selectedMatch.kickoff_at)}</span>
-                  </div>
-                )}
-                {matchPickerOpen && (
-                  <div className="match-picker__panel" id="world-cup-match-panel">
-                    <div className="match-picker__filters">
-                      <input
-                        className="input"
-                        id="match_search"
-                        onChange={(event) => setMatchQuery(event.target.value)}
-                        placeholder="Buscar Mexico, Espana, Brasil..."
-                        type="search"
-                        value={matchQuery}
-                      />
-                      <input
-                        className="input"
-                        onChange={(event) => setMatchDate(event.target.value)}
-                        type="date"
-                        value={matchDate}
-                      />
-                    </div>
-                    <div className="match-picker__results">
-                      {matchLoading && <p className="muted">Buscando partidos del Mundial...</p>}
-                      {!matchLoading && matchError && <p className="muted">{matchError}</p>}
-                      {!matchLoading && !matchError && matchResults.length === 0 && (
-                        <p className="muted">No hay partidos del Mundial disponibles con esos filtros.</p>
-                      )}
-                      {matchResults.map((match) => (
-                        <button
-                          className={`match-option ${selectedMatch?.id === match.id ? "is-active" : ""}`}
-                          key={match.id}
-                          onClick={() => applyFootballMatch(match)}
-                          type="button"
-                        >
-                          <span className="match-option__teams">
-                            {match.home_team_crest && <img alt="" src={match.home_team_crest} />}
-                            <strong>{match.home_team_name}</strong>
-                            <span>vs</span>
-                            {match.away_team_crest && <img alt="" src={match.away_team_crest} />}
-                            <strong>{match.away_team_name}</strong>
-                          </span>
-                          <span className="match-option__meta">
-                            {match.competition_name ?? match.competition_code ?? "Mundial"} - {formatMatchDate(match.kickoff_at)} - {formatMatchStatus(match.status)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
               <div className="publish__grid-2">
                 <div className="field">
                   <label className="field__label" htmlFor="deporte">
@@ -1107,14 +1145,13 @@ export default function NuevoPage() {
 
               <div className="field">
                 <label className="field__label" htmlFor="evento">
-                  Evento / partido
+                  Evento general
                 </label>
                 <input
                   id="evento"
                   name="evento"
                   className="input"
-                  placeholder="Ej: Real Sociedad - Villarreal"
-                  required
+                  placeholder="Opcional si eliges partido en cada seleccion"
                   onChange={(e) => {
                     setEvento(e.target.value);
                     setPreview((p) => ({ ...p, evento: e.target.value || "..." }));
@@ -1122,7 +1159,7 @@ export default function NuevoPage() {
                   value={evento}
                 />
                 <div className="field__hint">
-                  Escribe el nombre del partido o evento.
+                  Para combinadas de varios partidos, puedes dejarlo vacio y elegir un partido en cada seleccion.
                 </div>
               </div>
 
@@ -1140,8 +1177,48 @@ export default function NuevoPage() {
 
                 <div className="picks-list">
                   {picks.map((pick, idx) => (
-                    <div key={idx} className="pick-row">
+                    <div
+                      key={idx}
+                      className={`pick-row pick-row--with-match ${picks.length === 1 ? "pick-row--no-remove" : ""}`}
+                    >
                       <span className="pick-row__num">{idx + 1}</span>
+                      <div className="pick-row__match">
+                        <input
+                          className="input"
+                          placeholder="Partido de esta seleccion"
+                          value={pick.eventName ?? ""}
+                          onChange={(e) => updatePick(idx, "eventName", e.target.value)}
+                        />
+                        <div className="pick-row__match-actions">
+                          <button
+                            aria-controls={`world-cup-match-panel-${idx}`}
+                            aria-expanded={matchPickerPickIndex === idx}
+                            className="pick-row__match-btn"
+                            onClick={() => toggleMatchPicker(idx)}
+                            type="button"
+                          >
+                            {matchPickerPickIndex === idx
+                              ? "Ocultar"
+                              : pick.footballMatchId
+                              ? "Cambiar partido"
+                              : "Elegir partido"}
+                          </button>
+                          {(pick.eventName || pick.footballMatchId) && (
+                            <button
+                              className="pick-row__match-btn pick-row__match-btn--muted"
+                              onClick={() => clearPickMatch(idx)}
+                              type="button"
+                            >
+                              Quitar
+                            </button>
+                          )}
+                        </div>
+                        {pick.kickoffAt && (
+                          <span className="pick-row__match-meta">
+                            {pick.competition ?? "Futbol"} - {formatMatchDate(pick.kickoffAt)}
+                          </span>
+                        )}
+                      </div>
                       <input
                         className="input pick-row__mercado"
                         placeholder="Ej: BTTS Si, Mas 2.5, Gana local..."
@@ -1188,6 +1265,51 @@ export default function NuevoPage() {
                         >
                           ×
                         </button>
+                      )}
+                      {matchPickerPickIndex === idx && (
+                        <div className="match-picker__panel pick-row__match-panel" id={`world-cup-match-panel-${idx}`}>
+                          <div className="match-picker__filters">
+                            <input
+                              className="input"
+                              onChange={(event) => setMatchQuery(event.target.value)}
+                              placeholder="Buscar Mexico, Espana, Brasil..."
+                              type="search"
+                              value={matchQuery}
+                            />
+                            <input
+                              className="input"
+                              onChange={(event) => setMatchDate(event.target.value)}
+                              type="date"
+                              value={matchDate}
+                            />
+                          </div>
+                          <div className="match-picker__results">
+                            {matchLoading && <p className="muted">Buscando partidos del Mundial...</p>}
+                            {!matchLoading && matchError && <p className="muted">{matchError}</p>}
+                            {!matchLoading && !matchError && matchResults.length === 0 && (
+                              <p className="muted">No hay partidos del Mundial disponibles con esos filtros.</p>
+                            )}
+                            {matchResults.map((match) => (
+                              <button
+                                className={`match-option ${pick.footballMatchId === match.id ? "is-active" : ""}`}
+                                key={match.id}
+                                onClick={() => applyFootballMatch(match)}
+                                type="button"
+                              >
+                                <span className="match-option__teams">
+                                  {match.home_team_crest && <img alt="" src={match.home_team_crest} />}
+                                  <strong>{match.home_team_name}</strong>
+                                  <span>vs</span>
+                                  {match.away_team_crest && <img alt="" src={match.away_team_crest} />}
+                                  <strong>{match.away_team_name}</strong>
+                                </span>
+                                <span className="match-option__meta">
+                                  {match.competition_name ?? match.competition_code ?? "Mundial"} - {formatMatchDate(match.kickoff_at)} - {formatMatchStatus(match.status)}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -1400,7 +1522,7 @@ export default function NuevoPage() {
                   Pendiente
                 </span>
               </header>
-              <h3 className="pred__title">{preview.evento}</h3>
+              <h3 className="pred__title">{previewEventLabel || "..."}</h3>
               {previewCategories.length > 0 && (
                 <div className="pred-meta-list">
                   {previewCategories.map((category) => (
