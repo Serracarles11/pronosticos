@@ -225,7 +225,7 @@ export default async function FeedPage({
     const week = currentMadridWeekRange();
     query = query.gte("fecha_evento", week.start).lt("fecha_evento", week.end);
   } else {
-    query = query.gte("fecha_evento", new Date().toISOString());
+    query = query.or(`fecha_evento.is.null,fecha_evento.gte.${new Date().toISOString()}`);
   }
 
   type SearchProfile = {
