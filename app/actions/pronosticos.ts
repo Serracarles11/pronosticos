@@ -192,7 +192,7 @@ export async function createPronostico(formData: FormData) {
     visibilidad: visibilidad || "publico",
   };
 
-  const { data: insertedPick, error } = await supabase.from("pronosticos").insert({
+  const pickWithReferenceData = {
     ...basePick,
     football_match_id: footballMatchId || null,
     football_match_external_id: footballMatchExternalId || null,
@@ -203,13 +203,43 @@ export async function createPronostico(formData: FormData) {
     categorias,
     event_key: eventKey || null,
     moderation_status: spamReview.moderationStatus,
-  }).select("id").maybeSingle();
+  };
+
+  let { data: insertedPick, error } = await supabase
+    .from("pronosticos")
+    .insert(pickWithReferenceData)
+    .select("id")
+    .maybeSingle();
 
   if (isMissingOptionalSchema(error)) {
-    return {
-      error:
-        "Falta actualizar la base de datos para guardar el link. Ejecuta supabase/14_pronostico_copy_categories.sql en Supabase.",
+    const missingSchemaMessage = error?.message ?? "";
+    const missingReferenceDataColumn =
+      missingSchemaMessage.includes("bookmaker") ||
+      missingSchemaMessage.includes("stake_simulado") ||
+      missingSchemaMessage.includes("cuota_tomada_at");
+
+    if (!missingReferenceDataColumn) {
+      return {
+        error:
+          "Falta actualizar la base de datos para guardar el link. Ejecuta supabase/14_pronostico_copy_categories.sql en Supabase.",
+      };
+    }
+
+    const pickWithoutReferenceData = {
+      ...basePick,
+      football_match_id: footballMatchId || null,
+      football_match_external_id: footballMatchExternalId || null,
+      copy_link: copyLink,
+      categorias,
+      event_key: eventKey || null,
+      moderation_status: spamReview.moderationStatus,
     };
+
+    ({ data: insertedPick, error } = await supabase
+      .from("pronosticos")
+      .insert(pickWithoutReferenceData)
+      .select("id")
+      .maybeSingle());
   }
 
   if (error) {

@@ -4,6 +4,7 @@ import {
   buildEventKey,
   checkMaxPicksPerMatch,
   checkPickRateLimit,
+  isMissingOptionalSchema,
   recordLinkUsage,
   reviewContentForSpam,
 } from "@/lib/anti-spam/server";
@@ -125,9 +126,7 @@ export async function createCombinedPickFromImport(
     if (selectionInsertError) return { error: selectionInsertError.message };
   }
 
-  const { data: insertedPick, error: insertError } = await supabase
-    .from("pronosticos")
-    .insert({
+  const importedPickWithReferenceData = {
       user_id: userId,
       deporte,
       competicion,
@@ -144,9 +143,45 @@ export async function createCombinedPickFromImport(
       categorias: normalizePickCategories(["combinada", "importada"].join(",")),
       event_key: eventKey || null,
       moderation_status: spamReview.moderationStatus,
-    })
+  };
+
+  let { data: insertedPick, error: insertError } = await supabase
+    .from("pronosticos")
+    .insert(importedPickWithReferenceData)
     .select("id")
     .maybeSingle();
+
+  if (isMissingOptionalSchema(insertError)) {
+    const missingSchemaMessage = insertError?.message ?? "";
+    const missingReferenceDataColumn =
+      missingSchemaMessage.includes("bookmaker") ||
+      missingSchemaMessage.includes("stake_simulado") ||
+      missingSchemaMessage.includes("cuota_tomada_at");
+
+    if (missingReferenceDataColumn) {
+      const importedPickWithoutReferenceData = {
+        user_id: userId,
+        deporte,
+        competicion,
+        evento: eventName,
+        mercado,
+        cuota,
+        confianza,
+        explicacion,
+        fecha_evento: payload.kickoffAt,
+        visibilidad,
+        categorias: normalizePickCategories(["combinada", "importada"].join(",")),
+        event_key: eventKey || null,
+        moderation_status: spamReview.moderationStatus,
+      };
+
+      ({ data: insertedPick, error: insertError } = await supabase
+        .from("pronosticos")
+        .insert(importedPickWithoutReferenceData)
+        .select("id")
+        .maybeSingle());
+    }
+  }
 
   if (insertError) return { error: insertError.message };
 
