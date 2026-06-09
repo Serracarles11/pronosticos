@@ -8,8 +8,26 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/u", "/partidos", "/terminos", "/privacidad", "/cookies", "/juego-seguro"],
-        disallow: ["/feed", "/detalle", "/picks", "/ranking", "/perfil", "/cuenta", "/guardados", "/nuevo", "/admin"],
+        allow: [
+          "/",
+          "/u",
+          "/partidos",
+          "/ranking",
+          "/terminos",
+          "/privacidad",
+          "/cookies",
+          "/juego-seguro",
+        ],
+        disallow: [
+          "/feed",
+          "/detalle",
+          "/picks",
+          "/perfil",
+          "/cuenta",
+          "/guardados",
+          "/nuevo",
+          "/admin",
+        ],
       },
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
