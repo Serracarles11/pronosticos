@@ -5,7 +5,7 @@ import { HeaderAuth } from "./header-auth";
 import { HeaderSearch } from "./header-search";
 import { ShellBetaFeedback, ShellNotificationBell } from "./shell-client-widgets";
 
-type NavKey = "feed" | "partidos" | "ranking" | "perfil" | "cuenta" | "guardados" | "landing";
+type NavKey = "feed" | "pronosticos" | "partidos" | "ranking" | "perfil" | "cuenta" | "guardados" | "landing";
 
 type TodosGanamosShellProps = {
   active?: NavKey;
@@ -151,7 +151,9 @@ export function TodosGanamosShell({
   hideFooter = false,
   children,
 }: TodosGanamosShellProps) {
-  const logoHref = active === "landing" ? "/" : "/feed";
+  const publicNav = active === "landing" || active === "pronosticos";
+  const logoHref = publicNav ? "/" : "/feed";
+  const pronosticosHref = publicNav ? "/pronosticos" : "/feed";
 
   return (
     <>
@@ -160,7 +162,7 @@ export function TodosGanamosShell({
           <AppLogo href={logoHref} preload />
           <HeaderSearch initialValue={searchValue} key={searchValue} />
           <nav className="nav">
-            <NavLink href="/feed" active={active === "feed"}>
+            <NavLink href={pronosticosHref} active={active === "feed" || active === "pronosticos"}>
               Pronosticos
             </NavLink>
             <NavLink href="/partidos" active={active === "partidos"}>
@@ -215,7 +217,7 @@ export function TodosGanamosShell({
         <div className="footer__inner">
           <AppLogo href={logoHref} />
           <nav className="footer__nav">
-            <Link href="/feed">Feed</Link>
+            <Link href="/pronosticos">Pronosticos</Link>
             <Link href="/partidos">Partidos</Link>
             <Link href="/ranking">Ranking</Link>
             <Link href="/terminos">Terminos</Link>

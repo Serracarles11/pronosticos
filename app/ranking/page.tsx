@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { FollowButton } from "../components/follow-button";
@@ -47,7 +46,6 @@ export default async function RankingPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/auth?next=/ranking");
 
   let followedUserIds: string[] = [];
   let requestedUserIds: string[] = [];
@@ -125,7 +123,7 @@ export default async function RankingPage({
         moderation_status: moderationById.get(p.id) ?? "approved",
         is_shadowbanned: shadowByUser.get(p.user_id) ?? false,
       })),
-      user.id,
+      user?.id ?? null,
       new Set(),
       false
     );
