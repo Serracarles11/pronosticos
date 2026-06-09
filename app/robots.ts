@@ -8,16 +8,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: [
-          "/",
-          "/u",
-          "/partidos",
-          "/ranking",
-          "/terminos",
-          "/privacidad",
-          "/cookies",
-          "/juego-seguro",
-        ],
+        allow: "/",
         disallow: [
           "/feed",
           "/detalle",
