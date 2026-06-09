@@ -129,7 +129,7 @@ export default async function DetallePage({
         .order("created_at", { ascending: true }),
       supabase
         .from("pronosticos")
-        .select("id, evento, mercado, estado, visibilidad")
+        .select("id, evento, cuota, visibilidad")
         .eq("user_id", p.user_id)
         .neq("id", id)
         .neq("visibilidad", "borrador")
@@ -460,22 +460,8 @@ export default async function DetallePage({
                     >
                       <div className="rail__item-title">{mp.evento}</div>
                       <div className="rail__item-meta">
-                        <span>{mp.mercado}</span>
-                        <span
-                          className={
-                            mp.estado === "acertada"
-                              ? "mono stat-positive"
-                              : mp.estado === "fallada"
-                              ? "mono stat-negative"
-                              : "mono muted"
-                          }
-                        >
-                          {mp.estado === "acertada"
-                            ? "Acertada"
-                            : mp.estado === "fallada"
-                            ? "Fallada"
-                            : "Pendiente"}
-                        </span>
+                        <span>Cuota</span>
+                        <span className="mono">{Number(mp.cuota).toFixed(2)}</span>
                       </div>
                     </Link>
                   ))}
