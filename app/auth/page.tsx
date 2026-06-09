@@ -3,7 +3,7 @@
 import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { login, loginWithGoogle, signup } from "@/app/actions/auth";
+import { login, signup } from "@/app/actions/auth";
 import { AppLogo } from "@/app/components/app-logo";
 import { normalizeAuthRedirect } from "@/lib/auth-redirect";
 
@@ -117,20 +117,6 @@ function AuthContent() {
               {error}
             </div>
           )}
-
-          <form action={loginWithGoogle}>
-            <input name="next" type="hidden" value={next} />
-            <button
-              className="btn btn--lg btn--flex auth-google"
-              disabled={isPending}
-              type="submit"
-            >
-              <span className="auth-google__mark" aria-hidden="true">G</span>
-              Continuar con Google
-            </button>
-          </form>
-
-          <div className="auth-divider"><span>o usa tu correo</span></div>
 
           {tab === "login" ? (
             <form action={handleLogin} className="auth-form">

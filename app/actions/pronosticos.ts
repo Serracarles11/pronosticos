@@ -192,7 +192,7 @@ export async function createPronostico(formData: FormData) {
     visibilidad: visibilidad || "publico",
   };
 
-  let { data: insertedPick, error } = await supabase.from("pronosticos").insert({
+  const { data: insertedPick, error } = await supabase.from("pronosticos").insert({
     ...basePick,
     football_match_id: footballMatchId || null,
     football_match_external_id: footballMatchExternalId || null,
@@ -206,7 +206,10 @@ export async function createPronostico(formData: FormData) {
   }).select("id").maybeSingle();
 
   if (isMissingOptionalSchema(error)) {
-    ({ data: insertedPick, error } = await supabase.from("pronosticos").insert(basePick).select("id").maybeSingle());
+    return {
+      error:
+        "Falta actualizar la base de datos para guardar el link. Ejecuta supabase/14_pronostico_copy_categories.sql en Supabase.",
+    };
   }
 
   if (error) {
@@ -270,6 +273,58 @@ export async function deletePronostico(formData: FormData) {
   revalidatePath("/ranking");
   revalidatePath("/guardados");
   redirect("/perfil?ok=eliminado");
+}
+
+export async function updatePronosticoCopyLink(pronosticoId: string, copyLinkValue: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Debes iniciar sesion." };
+
+  let copyLink: string | null = null;
+  try {
+    copyLink = normalizeBetCopyLink(copyLinkValue);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Revisa el enlace de la apuesta." };
+  }
+
+  if (!copyLink) {
+    return { error: "Añade un enlace HTTPS para copiar la apuesta." };
+  }
+
+  const { data: pronostico, error: fetchError } = await supabase
+    .from("pronosticos")
+    .select("id, user_id")
+    .eq("id", pronosticoId)
+    .maybeSingle();
+
+  if (fetchError) return { error: fetchError.message };
+  if (!pronostico) return { error: "No se ha encontrado el pronostico." };
+  if (pronostico.user_id !== user.id) {
+    return { error: "Solo el autor puede editar el link de esta apuesta." };
+  }
+
+  const { error } = await supabase
+    .from("pronosticos")
+    .update({ copy_link: copyLink })
+    .eq("id", pronosticoId)
+    .eq("user_id", user.id);
+
+  if (isMissingOptionalSchema(error)) {
+    return {
+      error:
+        "Falta actualizar la base de datos para guardar el link. Ejecuta supabase/14_pronostico_copy_categories.sql en Supabase.",
+    };
+  }
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/detalle");
+  revalidatePath("/feed");
+  return { ok: true, copyLink };
 }
 
 export async function toggleLike(pronosticoId: string) {

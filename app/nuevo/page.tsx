@@ -689,6 +689,7 @@ export default function NuevoPage() {
   async function handleSubmit(formData: FormData) {
     formData.set("confianza", String(confianza));
     formData.set("picks_json", JSON.stringify(picks));
+    formData.set("copy_link", copyLink.trim());
     if (picksEventLabel) formData.set("evento", picksEventLabel);
     if (picksCompetitionLabel) formData.set("competicion", picksCompetitionLabel);
     if (picksLatestKickoff) formData.set("fecha_evento", picksLatestKickoff);

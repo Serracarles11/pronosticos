@@ -10,9 +10,11 @@ import { FollowButton } from "../components/follow-button";
 import { SettlementForm } from "../components/settlement-form";
 import { ProofImageModal } from "../components/proof-image-modal";
 import { ReportButton } from "../components/report-button";
-import { ShareButton } from "../components/share-button";
+import { CopyLinkButton, ShareButton } from "../components/share-button";
 import { DeletePronosticoButton } from "../components/delete-pronostico-button";
+import { EditPronosticoLinkButton } from "../components/edit-pronostico-link-button";
 import { formatPickCategory } from "@/lib/pronostico-meta";
+import { parsePronosticoSelections } from "@/lib/pronostico-selections";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 
@@ -43,6 +45,19 @@ function EstadoPill({ estado }: { estado: string }) {
 function canSettlePronostico(fechaEvento: string | null, estado: string) {
   if (!fechaEvento || estado !== "pendiente") return false;
   return Date.now() >= new Date(fechaEvento).getTime() + 24 * 60 * 60 * 1000;
+}
+
+function getCopyLink(value: unknown) {
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return null;
+
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 export default async function DetallePage({
@@ -175,8 +190,9 @@ export default async function DetallePage({
   const confidenceLabel =
     p.confianza >= 4 ? "Conviccion alta" : p.confianza === 3 ? "Conviccion media" : "Conviccion prudente";
   const categorias = Array.isArray(p.categorias) ? (p.categorias as string[]) : [];
-  const copyLink =
-    typeof p.copy_link === "string" && p.copy_link.startsWith("https://") ? p.copy_link : null;
+  const copyLink = getCopyLink(p.copy_link);
+  const selections = parsePronosticoSelections(String(p.mercado ?? ""));
+  const isCombined = selections.length > 1;
 
   return (
     <TodosGanamosShell active="feed">
@@ -249,31 +265,37 @@ export default async function DetallePage({
                 )}
               </div>
 
-              {(categorias.length > 0 || copyLink) && (
+              {categorias.length > 0 && (
                 <div className="pred-meta-list">
                   {categorias.map((category) => (
                     <span className="badge" key={category}>
                       {formatPickCategory(category)}
                     </span>
                   ))}
-                  {copyLink && (
-                    <a
-                      className="badge badge--purple pred-meta-link"
-                      href={copyLink}
-                      rel="noopener noreferrer nofollow"
-                      target="_blank"
-                    >
-                      Link para copiar
-                    </a>
-                  )}
                 </div>
               )}
 
-              <div className="pred__strip">
-                <div className="pred__cell">
-                  <div className="pred__cell-label">Pronostico</div>
-                  <div className="pred__cell-value">{p.mercado}</div>
+              {isCombined && (
+                <div className="combo-selections">
+                  {selections.map((selection, selectionIndex) => (
+                    <div className="combo-selection" key={`${selection.eventName}-${selection.pick}-${selectionIndex}`}>
+                      <span className="combo-selection__num">{selectionIndex + 1}</span>
+                      <div>
+                        {selection.eventName && <strong>{selection.eventName}</strong>}
+                        <span>{selection.pick}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+
+              <div className={`pred__strip ${isCombined ? "pred__strip--combo" : ""}`}>
+                {!isCombined && (
+                  <div className="pred__cell">
+                    <div className="pred__cell-label">Pronostico</div>
+                    <div className="pred__cell-value">{p.mercado}</div>
+                  </div>
+                )}
                 <div className="pred__cell pred__cell--accent">
                   <div className="pred__cell-label">Cuota</div>
                   <div className="pred__cell-value mono">{Number(p.cuota).toFixed(2)}</div>
@@ -334,7 +356,9 @@ export default async function DetallePage({
                   {user && (
                     <SaveButton pronosticoId={id} initialSaved={isSaved} />
                   )}
+                  <CopyLinkButton disabled={!copyLink} url={copyLink ?? undefined} />
                   <ShareButton title={`${p.evento} - ${p.mercado}`} />
+                  {isOwner && <EditPronosticoLinkButton initialCopyLink={copyLink} pronosticoId={id} />}
                   {isOwner && <DeletePronosticoButton pronosticoId={id} />}
                   {user && !isOwner && <ReportButton pronosticoId={id} />}
                 </div>

@@ -1520,6 +1520,79 @@ button {
   letter-spacing: 0;
 }
 
+.pred__strip--combo {
+  grid-template-columns: minmax(124px, 0.68fr) minmax(150px, 0.85fr);
+}
+
+.combo-selections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.combo-selections--feed {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.combo-selection {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: #f8fbff;
+  color: var(--text);
+}
+
+.combo-selection__num {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--blue-50);
+  color: var(--blue-700);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.combo-selection div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.combo-selection strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combo-selection span:not(.combo-selection__num) {
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.combo-selection--more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue-700);
+  font-weight: 900;
+  text-align: center;
+}
+
 .pred__confidence {
   display: flex;
   align-items: center;
@@ -1608,7 +1681,7 @@ button {
   gap: 12px;
 }
 
-.pred__actions button:not(.like-button):not(.comment-button):not(.save-button),
+.pred__actions button:not(.like-button):not(.comment-button):not(.save-button):not(.copy-link-button),
 .comment__actions button {
   background: none;
   border: 0;
@@ -1624,6 +1697,7 @@ button {
 .pred__actions .like-button,
 .pred__actions .comment-button,
 .pred__actions .save-button,
+.pred__actions .copy-link-button,
 .pred__actions .muted {
   min-height: 36px;
   border: 1px solid rgba(200, 210, 226, 0.88);
@@ -1642,15 +1716,27 @@ button {
   line-height: 1;
 }
 
+.pred__actions .copy-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  color: var(--text-2);
+  font-weight: 800;
+  line-height: 1;
+}
+
 .pred__actions .like-button:hover,
 .pred__actions .comment-button:hover,
 .pred__actions .save-button:hover,
+.pred__actions .copy-link-button:hover,
 .pred__actions .muted:hover {
   box-shadow: none;
 }
 
 .pred__actions .comment-button:hover,
 .pred__actions .save-button:hover,
+.pred__actions .copy-link-button:hover,
 .pred__actions .muted:hover {
   border-color: rgba(46, 99, 220, 0.34);
   background: var(--blue-50);
@@ -2619,6 +2705,109 @@ button {
 .detail__actions {
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.detail__actions .copy-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 10px 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 800;
+  box-shadow: none;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.detail__actions .copy-link-button:hover {
+  border-color: var(--blue-400);
+  background: var(--blue-50);
+  color: var(--blue-700);
+}
+
+.detail__actions .copy-link-button:disabled,
+.pred__actions .copy-link-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.detail__actions .copy-link-button:disabled:hover,
+.pred__actions .copy-link-button:disabled:hover {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.bet-copy-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--blue-50);
+}
+
+.bet-copy-link > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bet-copy-link__label {
+  color: var(--blue-700);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bet-copy-link__url {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bet-copy-link__url:hover {
+  color: var(--blue-700);
+}
+
+.bet-copy-link button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 1px solid var(--blue-700);
+  border-radius: 999px;
+  background: var(--blue-700);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.bet-copy-link button span {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 10px;
 }
 
 .delete-pronostico-form {
@@ -5150,6 +5339,12 @@ button {
     gap: 8px;
   }
 
+  .combo-selections,
+  .combo-selections--feed {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
   .pred__strip .pred__cell:last-child {
     grid-column: 1 / -1;
   }
@@ -5205,6 +5400,15 @@ button {
   }
 
   .detail__actions {
+    width: 100%;
+  }
+
+  .bet-copy-link {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bet-copy-link button {
     width: 100%;
   }
 
@@ -5870,6 +6074,7 @@ button {
 
   .detail__actions .btn,
   .detail__actions .save-button,
+  .detail__actions .copy-link-button,
   .share,
   .share .btn {
     width: 100%;

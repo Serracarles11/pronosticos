@@ -6,6 +6,7 @@ import { LikeButton } from "../components/like-button";
 import { FollowButton } from "../components/follow-button";
 import { SaveButton } from "../components/save-button";
 import { CommentLink } from "../components/comment-link";
+import { CopyLinkButton } from "../components/share-button";
 import { FeedFilterDropdown, type FeedFilterOption } from "../components/feed-filter-dropdown";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
@@ -13,6 +14,7 @@ import {
   localizeFootballCompetitionName,
   localizeFootballTeamName,
 } from "@/lib/football-data/localize";
+import { parsePronosticoSelections } from "@/lib/pronostico-selections";
 
 const DEPORTES = ["Futbol", "Tenis", "NBA", "eSports", "Combinadas", "Otros"];
 const CATEGORIAS = [
@@ -189,7 +191,7 @@ export default async function FeedPage({
     .from("pronosticos")
     .select(`
       id, evento, mercado, cuota, confianza, explicacion,
-      estado, competicion, deporte, fecha_evento, created_at, user_id, visibilidad,
+      estado, competicion, deporte, fecha_evento, created_at, user_id, visibilidad, copy_link,
       profiles!pronosticos_user_id_fkey ( username, display_name, is_private ),
       likes ( count ),
       comentarios ( count )
@@ -716,6 +718,14 @@ export default async function FeedPage({
                 const canFollow = !!user && user.id !== userId;
                 const explanation = String(item.explicacion ?? "").trim();
                 const explanationPreview = explanation.slice(0, 120);
+                const selections = parsePronosticoSelections(String(item.mercado ?? ""));
+                const isCombined = selections.length > 1;
+                const visibleSelections = selections.slice(0, 4);
+                const hiddenSelectionCount = Math.max(0, selections.length - visibleSelections.length);
+                const copyLink =
+                  typeof item.copy_link === "string" && item.copy_link.startsWith("https://")
+                    ? item.copy_link
+                    : null;
 
                 return (
                   <article
@@ -766,11 +776,34 @@ export default async function FeedPage({
                         </Link>
                       </h3>
                     </div>
-                    <div className="pred__strip">
-                      <div className="pred__cell">
-                        <div className="pred__cell-label">Pronostico</div>
-                        <div className="pred__cell-value">{item.mercado as string}</div>
+                    {isCombined && (
+                      <div className="combo-selections combo-selections--feed">
+                        {visibleSelections.map((selection, selectionIndex) => (
+                          <div className="combo-selection" key={`${selection.eventName}-${selection.pick}-${selectionIndex}`}>
+                            <span className="combo-selection__num">{selectionIndex + 1}</span>
+                            <div>
+                              {selection.eventName && (
+                                <strong>{selection.eventName}</strong>
+                              )}
+                              <span>{selection.pick}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {hiddenSelectionCount > 0 && (
+                          <Link className="combo-selection combo-selection--more" href={`/detalle?id=${item.id as string}`}>
+                            Ver {hiddenSelectionCount} mas
+                          </Link>
+                        )}
                       </div>
+                    )}
+
+                    <div className={`pred__strip ${isCombined ? "pred__strip--combo" : ""}`}>
+                      {!isCombined && (
+                        <div className="pred__cell">
+                          <div className="pred__cell-label">Pronostico</div>
+                          <div className="pred__cell-value">{item.mercado as string}</div>
+                        </div>
+                      )}
                       <div className="pred__cell pred__cell--accent">
                         <div className="pred__cell-label">Cuota</div>
                         <div className="pred__cell-value mono">
@@ -812,6 +845,7 @@ export default async function FeedPage({
                             initialSaved={isSaved}
                           />
                         )}
+                        {copyLink && <CopyLinkButton url={copyLink} />}
                         <Link href={`/detalle?id=${item.id as string}`} className="muted">
                           Ver →
                         </Link>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeAuthRedirect } from "@/lib/auth-redirect";
+import { getPublicSiteOrigin } from "@/lib/site-url";
 
 function sanitizeUsername(value: string) {
   const normalized = value
@@ -59,13 +60,14 @@ async function ensureOAuthProfile(supabase: Awaited<ReturnType<typeof createClie
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const publicOrigin = getPublicSiteOrigin();
   const code = url.searchParams.get("code");
   const authError = url.searchParams.get("error_description") ?? url.searchParams.get("error");
   const next = normalizeAuthRedirect(url.searchParams.get("next"));
 
   if (authError) {
     return NextResponse.redirect(
-      new URL(`/auth?next=${encodeURIComponent(next)}&error=${encodeURIComponent(authError)}`, url.origin)
+      new URL(`/auth?next=${encodeURIComponent(next)}&error=${encodeURIComponent(authError)}`, publicOrigin)
     );
   }
 
@@ -75,14 +77,14 @@ export async function GET(request: Request) {
 
     if (!error) {
       await ensureOAuthProfile(supabase);
-      return NextResponse.redirect(new URL(next, url.origin));
+      return NextResponse.redirect(new URL(next, publicOrigin));
     }
 
     return NextResponse.redirect(
-      new URL(`/auth?next=${encodeURIComponent(next)}&error=${encodeURIComponent(error.message)}`, url.origin)
+      new URL(`/auth?next=${encodeURIComponent(next)}&error=${encodeURIComponent(error.message)}`, publicOrigin)
     );
   }
 
   const message = "No se ha podido iniciar sesion con Google. Intentalo de nuevo.";
-  return NextResponse.redirect(new URL(`/auth?error=${encodeURIComponent(message)}`, url.origin));
+  return NextResponse.redirect(new URL(`/auth?error=${encodeURIComponent(message)}`, publicOrigin));
 }

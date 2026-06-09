@@ -16,10 +16,21 @@ function openShareUrl(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-export function CopyLinkButton({ url, onCopied }: { url?: string; onCopied?: () => void }) {
+export function CopyLinkButton({
+  url,
+  onCopied,
+  label = "Copiar apuesta",
+  disabled = false,
+}: {
+  url?: string;
+  onCopied?: () => void;
+  label?: string;
+  disabled?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
+    if (disabled || !url) return;
     await navigator.clipboard.writeText(currentUrl(url));
     setCopied(true);
     onCopied?.();
@@ -27,9 +38,14 @@ export function CopyLinkButton({ url, onCopied }: { url?: string; onCopied?: () 
   }
 
   return (
-    <button type="button" onClick={copy}>
-      <span>CP</span>
-      {copied ? "Enlace copiado" : "Copiar enlace"}
+    <button
+      className="copy-link-button"
+      disabled={disabled}
+      title={disabled ? "Esta apuesta no tiene link guardado" : undefined}
+      type="button"
+      onClick={copy}
+    >
+      {copied ? "Copiado" : label}
     </button>
   );
 }

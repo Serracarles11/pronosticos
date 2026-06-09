@@ -1,11 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeAuthRedirect } from "@/lib/auth-redirect";
-import { getRequestSiteOrigin } from "@/lib/site-url";
+import { getPublicSiteOrigin } from "@/lib/site-url";
 import { checkBlockedWords, checkRepeatedLinks, logAntiSpamEvent, recordLinkUsage } from "@/lib/anti-spam/server";
 
 export async function login(formData: FormData) {
@@ -36,7 +35,7 @@ export async function signup(formData: FormData) {
     return { error: "El nombre de usuario debe tener al menos 3 caracteres." };
   }
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -51,13 +50,36 @@ export async function signup(formData: FormData) {
     return { error: error.message };
   }
 
-  redirect(next);
+  let signedUserId = data.user?.id ?? null;
+  if (!data.session) {
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (loginError) {
+      return {
+        error:
+          "La cuenta se ha creado, pero Supabase requiere confirmar el correo antes de iniciar sesion. Desactiva la confirmacion de email para entrar automaticamente.",
+      };
+    }
+    signedUserId = loginData.user?.id ?? signedUserId;
+  }
+
+  if (signedUserId) {
+    await supabase.from("profiles").upsert({
+      id: signedUserId,
+      username,
+      display_name: username,
+    });
+  }
+
+  redirect(new URL(next, getPublicSiteOrigin()).toString());
 }
 
 export async function loginWithGoogle(formData: FormData) {
   const supabase = await createClient();
   const next = normalizeAuthRedirect(String(formData.get("next") ?? ""));
-  const origin = getRequestSiteOrigin(await headers());
+  const origin = getPublicSiteOrigin();
   const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
