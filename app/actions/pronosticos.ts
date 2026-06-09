@@ -174,7 +174,7 @@ export async function createPronostico(formData: FormData) {
 
   const spamReview = await reviewContentForSpam(supabase, {
     userId: user.id,
-    text: [explicacion, copyLink].filter(Boolean).join(" "),
+    text: explicacion,
     targetType: "pronostico",
   });
   if (!spamReview.allowed) return { error: spamReview.error };

@@ -39,6 +39,7 @@ export async function signup(formData: FormData) {
     email,
     password,
     options: {
+      emailRedirectTo: `${getPublicSiteOrigin()}/auth/callback?next=${encodeURIComponent(next)}`,
       data: {
         username,
         display_name: username,
