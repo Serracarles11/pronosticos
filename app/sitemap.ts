@@ -3,19 +3,56 @@ import { getPublicSiteOrigin } from "@/lib/site-url";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = getPublicSiteOrigin();
-  const now = new Date();
+  const lastModified = new Date();
 
   return [
-    "",
-    "/partidos",
-    "/terminos",
-    "/privacidad",
-    "/cookies",
-    "/juego-seguro",
-  ].map((path) => ({
-    url: `${baseUrl}${path}`,
-    lastModified: now,
-    changeFrequency: path === "" ? "daily" : "weekly",
-    priority: path === "" ? 1 : 0.5,
-  }));
+    {
+      url: `${baseUrl}`,
+      lastModified,
+      changeFrequency: "daily",
+      priority: 1,
+    },
+    {
+      url: `${baseUrl}/pronosticos`,
+      lastModified,
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/partidos`,
+      lastModified,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/ranking`,
+      lastModified,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/terminos`,
+      lastModified,
+      changeFrequency: "weekly",
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/privacidad`,
+      lastModified,
+      changeFrequency: "weekly",
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/cookies`,
+      lastModified,
+      changeFrequency: "weekly",
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/juego-seguro`,
+      lastModified,
+      changeFrequency: "weekly",
+      priority: 0.5,
+    },
+  ];
 }
