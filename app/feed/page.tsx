@@ -8,6 +8,7 @@ import { SaveButton } from "../components/save-button";
 import { CommentLink } from "../components/comment-link";
 import { CopyLinkButton } from "../components/share-button";
 import { FeedFilterDropdown, type FeedFilterOption } from "../components/feed-filter-dropdown";
+import { FeedScrollRestorer } from "../components/feed-scroll-restorer";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 import {
@@ -655,6 +656,7 @@ export default async function FeedPage({
             </div>
 
             <div className="feed__scroll">
+            <FeedScrollRestorer />
             {searchTerm && matchedProfiles.length > 0 && (
               <section className="feed-search-users">
                 <div className="feed-search-users__head">
@@ -716,8 +718,6 @@ export default async function FeedPage({
                 const isSaved = userSavedIds.has(item.id as string);
                 const userId = item.user_id as string;
                 const canFollow = !!user && user.id !== userId;
-                const explanation = String(item.explicacion ?? "").trim();
-                const explanationPreview = explanation.slice(0, 120);
                 const selections = parsePronosticoSelections(String(item.mercado ?? ""));
                 const isCombined = selections.length > 1;
                 const visibleSelections = selections.slice(0, 4);
@@ -815,12 +815,6 @@ export default async function FeedPage({
                         <Confidence value={Number(item.confianza)} />
                       </div>
                     </div>
-                    {explanationPreview.length > 0 && (
-                      <p className="pred__body">
-                        {explanationPreview}
-                        {explanation.length > 120 ? "..." : ""}
-                      </p>
-                    )}
                     {profile?.is_private && !followedUserIdSet.has(userId) && user?.id !== userId && (
                       <span className="badge badge--lock">Cuenta privada</span>
                     )}

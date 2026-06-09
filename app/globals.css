@@ -2680,6 +2680,32 @@ button {
   margin-bottom: 16px;
 }
 
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: 12px;
+  padding: 8px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.back-button::before {
+  content: "<";
+  margin-right: 7px;
+}
+
+.back-button:hover {
+  border-color: rgba(46, 99, 220, 0.34);
+  background: var(--blue-50);
+  color: var(--blue-700);
+}
+
 .detail__pred {
   padding: 28px;
 }

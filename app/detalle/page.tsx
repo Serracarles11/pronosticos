@@ -13,6 +13,7 @@ import { ReportButton } from "../components/report-button";
 import { CopyLinkButton, ShareButton } from "../components/share-button";
 import { DeletePronosticoButton } from "../components/delete-pronostico-button";
 import { EditPronosticoLinkButton } from "../components/edit-pronostico-link-button";
+import { BackButton } from "../components/back-button";
 import { formatPickCategory } from "@/lib/pronostico-meta";
 import { parsePronosticoSelections } from "@/lib/pronostico-selections";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
@@ -199,6 +200,7 @@ export default async function DetallePage({
       <main className="detail">
         <div className="detail__inner">
           <section className="detail__main">
+            <BackButton />
             <nav className="detail__crumbs">
               <Link href="/feed">Pronosticos</Link>
               {p.deporte && (

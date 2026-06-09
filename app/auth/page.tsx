@@ -3,7 +3,7 @@
 import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { login, signup } from "@/app/actions/auth";
+import { login, loginWithGoogle, signup } from "@/app/actions/auth";
 import { AppLogo } from "@/app/components/app-logo";
 import { normalizeAuthRedirect } from "@/lib/auth-redirect";
 
@@ -117,6 +117,18 @@ function AuthContent() {
               {error}
             </div>
           )}
+
+          <form action={loginWithGoogle} className="auth-form">
+            <input name="next" type="hidden" value={next} />
+            <button className="btn btn--lg btn--flex auth-google" type="submit">
+              <span className="auth-google__mark">G</span>
+              Continuar con Google
+            </button>
+          </form>
+
+          <div className="auth-divider">
+            <span>O con email</span>
+          </div>
 
           {tab === "login" ? (
             <form action={handleLogin} className="auth-form">
