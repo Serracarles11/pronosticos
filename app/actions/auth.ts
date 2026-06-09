@@ -73,7 +73,7 @@ export async function signup(formData: FormData) {
     });
   }
 
-  redirect(new URL(next, getPublicSiteOrigin()).toString());
+  redirect(next);
 }
 
 export async function loginWithGoogle(formData: FormData) {
