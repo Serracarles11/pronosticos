@@ -1026,7 +1026,7 @@ button {
 }
 
 .card--featured {
-  border-color: rgba(46, 99, 220, 0.42);
+  border-color: var(--border);
   box-shadow: none;
 }
 
@@ -1067,16 +1067,7 @@ button {
 }
 
 .pred::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 0;
-  height: 2px;
-  border-radius: var(--r-xl) var(--r-xl) 0 0;
-  background: var(--blue-300);
-  opacity: 0.75;
+  content: none;
 }
 
 .pred > :not(.pred__overlay-link) {
@@ -1089,8 +1080,8 @@ button {
 }
 
 .pred--clickable:hover {
-  border-color: rgba(46, 99, 220, 0.46);
-  background: #fbfdff;
+  border-color: rgba(200, 210, 226, 0.95);
+  background: #fff;
   box-shadow: none;
 }
 
@@ -2492,7 +2483,7 @@ button {
   border-radius: 10px;
   background: var(--blue-700);
   color: #fff;
-  box-shadow: 0 8px 20px rgba(28, 63, 153, 0.16);
+  box-shadow: none;
   font-size: 13px;
   font-weight: 800;
   line-height: 1;
@@ -2502,7 +2493,7 @@ button {
 .feed-filter-dropdown__button:hover {
   border-color: var(--blue-900);
   background: var(--blue-900);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .feed-filter-dropdown__button strong {
