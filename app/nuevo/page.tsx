@@ -801,9 +801,14 @@ export default function NuevoPage() {
                           <h3>Revision de captura</h3>
                           <p>El OCR puede cometer errores. Edita los datos antes de publicar.</p>
                         </div>
-                        <span className="badge badge--purple">
-                          {importReview.kind === "combinada" ? "Combinada" : "Simple"}
-                        </span>
+                        <div className="bet-review__badges">
+                          {importReview.ticketPattern === "partial_selection_list" && (
+                            <span className="badge badge--purple">Captura parcial</span>
+                          )}
+                          <span className="badge badge--purple">
+                            {importReview.kind === "combinada" ? "Combinada" : "Simple"}
+                          </span>
+                        </div>
                       </div>
 
                       <div className="publish__grid-2">
@@ -816,14 +821,14 @@ export default function NuevoPage() {
                           >
                             <option value="unknown">No detectado</option>
                             <option value="winamax">Winamax</option>
-                            <option value="Bet365">Bet365</option>
-                            <option value="Betfair">Betfair</option>
-                            <option value="Betway">Betway</option>
-                            <option value="Codere">Codere</option>
-                            <option value="Sportium">Sportium</option>
-                            <option value="Luckia">Luckia</option>
-                            <option value="Bwin">Bwin</option>
-                            <option value="Otro">Otro</option>
+                            <option value="bet365">Bet365</option>
+                            <option value="betfair">Betfair</option>
+                            <option value="betway">Betway</option>
+                            <option value="codere">Codere</option>
+                            <option value="sportium">Sportium</option>
+                            <option value="luckia">Luckia</option>
+                            <option value="bwin">Bwin</option>
+                            <option value="otro">Otro</option>
                           </select>
                         </div>
                         <div className="field">
@@ -869,6 +874,22 @@ export default function NuevoPage() {
                         />
                       </div>
 
+                      <div className="bet-review__signals">
+                        <span>
+                          Confianza OCR: <strong>{Math.round((importReview.confidence ?? 0) * 100)}%</strong>
+                        </span>
+                        {importReview.debug?.parser && (
+                          <span>
+                            Parser: <strong>{importReview.debug.parser}</strong>
+                          </span>
+                        )}
+                        {typeof importReview.bookmakerConfidence === "number" && (
+                          <span>
+                            Bookmaker: <strong>{Math.round(importReview.bookmakerConfidence * 100)}%</strong>
+                          </span>
+                        )}
+                      </div>
+
                       <div className="bet-review__selections">
                         <div className="picks-header">
                           <label className="field__label" style={{ margin: 0 }}>
@@ -890,6 +911,23 @@ export default function NuevoPage() {
                             {importReview.warnings.map((warning) => (
                               <span key={warning}>{warning}</span>
                             ))}
+                          </div>
+                        )}
+                        {Boolean(importReview.corrections?.length) && (
+                          <div className="bet-review__warnings bet-review__warnings--soft">
+                            {importReview.corrections?.map((correction) => (
+                              <span key={correction}>{correction}</span>
+                            ))}
+                          </div>
+                        )}
+                        {Boolean(importReview.orphanOdds?.length) && (
+                          <div className="field__hint">
+                            Cuotas sueltas no asignadas: {importReview.orphanOdds?.map((odds) => odds.toFixed(2)).join(", ")}
+                          </div>
+                        )}
+                        {importReview.ticketPattern === "partial_selection_list" && (
+                          <div className="auth-info">
+                            No se ha detectado importe ni cuota total. Puedes completarlo manualmente.
                           </div>
                         )}
                         {totalMismatch && (
@@ -965,13 +1003,18 @@ export default function NuevoPage() {
                               </button>
                             </div>
                             <div className="bet-selection__actions">
-                              <button
-                                className="bet-selection__total-btn"
-                                onClick={() => markImportSelectionAsTotalOdds(idx)}
-                                type="button"
-                              >
-                                Cuota total
-                              </button>
+                              <span className="bet-selection__confidence">
+                                {Math.round(selection.confidence * 100)}%
+                              </span>
+                              {importReview.ticketPattern !== "partial_selection_list" && (
+                                <button
+                                  className="bet-selection__total-btn"
+                                  onClick={() => markImportSelectionAsTotalOdds(idx)}
+                                  type="button"
+                                >
+                                  Cuota total
+                                </button>
+                              )}
                               <button
                                 aria-label="Eliminar seleccion importada"
                                 className="pick-row__remove"

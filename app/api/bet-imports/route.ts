@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { parseBetSlipText } from "@/lib/bet-import/parser";
+import { parseBetSlipText } from "@/lib/betslip-import/parse-betslip";
 import { runOcrOnBetSlip } from "@/lib/bet-import/ocr";
 import { uploadBetSlipImage } from "@/lib/bet-import/upload";
 import { validateBetSlipImage } from "@/lib/bet-import/validators";
+import { preprocessBetslipImage } from "@/lib/betslip-import/image/preprocess-betslip-image";
 
 export const runtime = "nodejs";
 
@@ -110,7 +111,8 @@ export async function POST(request: Request) {
       .eq("id", betImport.id)
       .eq("user_id", user.id);
 
-    const ocr = await runOcrOnBetSlip(buffer);
+    const preparedImage = await preprocessBetslipImage(buffer);
+    const ocr = await runOcrOnBetSlip(preparedImage.buffer);
     const parsed = parseBetSlipText(ocr.text);
 
     if (parsed.selections.length > 0) {
@@ -136,7 +138,7 @@ export async function POST(request: Request) {
       .update({
         bookmaker: parsed.bookmaker === "unknown" ? null : parsed.bookmaker,
         extracted_text: ocr.text,
-        parsed_json: { ...parsed, ocrProvider: ocr.provider },
+        parsed_json: { ...parsed, ocrProvider: ocr.provider, imagePreprocess: preparedImage.steps },
         status: "processed",
         error_message: null,
       })

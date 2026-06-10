@@ -7,11 +7,35 @@ export type ImportedBetSelection = {
   kickoffAt: string | null;
   confidence: number;
   rawText: string;
+  rawLines?: string[];
+  warnings?: string[];
+  fieldConfidence?: {
+    bookmaker?: number;
+    type?: number;
+    eventName?: number;
+    market?: number;
+    selection?: number;
+    odds?: number;
+    kickoffAt?: number;
+    totalOdds?: number;
+    stake?: number;
+    potentialReturn?: number;
+    booster?: number;
+  };
+  isBetBuilder?: boolean;
+  isBuilder?: boolean;
+  builderType?: string | null;
+  rawTime?: string | null;
 };
 
 export type ParsedBetSlip = {
   bookmaker: string;
+  bookmakerConfidence?: number;
   kind: "simple" | "combinada";
+  type?: "single" | "combined" | "unknown";
+  typeConfidence?: number;
+  ticketPattern?: "full_betslip" | "partial_selection_list" | "single_selection_card" | "unknown";
+  ticketPatternConfidence?: number;
   sport: string;
   competition: string;
   eventName: string;
@@ -20,12 +44,32 @@ export type ParsedBetSlip = {
   selections: ImportedBetSelection[];
   totalOdds: number | null;
   detectedTotalOdds: number | null;
+  totalOddsDetected?: number | null;
+  totalOddsConfidence?: number;
+  calculatedTotalOdds?: number | null;
   potentialReturnDetected: number | null;
+  potentialReturnConfidence?: number;
   boosterPercent: number | null;
+  boosterConfidence?: number;
   totalOddsMatch: boolean | null;
   warnings: string[];
+  corrections?: string[];
+  orphanLines?: string[];
+  orphanOdds?: number[];
   stakeSimulated: number | null;
+  stakeDetected?: number | null;
+  stakeConfidence?: number;
   kickoffAt: string | null;
+  eventDateDetected?: string | null;
+  currency?: string | null;
+  confidence?: number;
+  rawText?: string;
+  debug?: {
+    parser: string;
+    bookmakerHints: string[];
+    ticketPatternHints: string[];
+    lineCount: number;
+  };
 };
 
 export type BetImportReviewPayload = ParsedBetSlip & {
