@@ -153,7 +153,7 @@ export function TodosGanamosShell({
 }: TodosGanamosShellProps) {
   const publicNav = active === "landing" || active === "pronosticos";
   const logoHref = publicNav ? "/" : "/feed";
-  const pronosticosHref = publicNav ? "/pronosticos" : "/feed";
+  const pronosticosHref = publicNav ? "/feed" : "/feed";
 
   return (
     <>
