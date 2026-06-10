@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description:
     "Consulta pronósticos deportivos gratuitos de la comunidad, descubre picks, cuotas informativas y sigue a los mejores tipsters en TodosGanamos.",
   alternates: {
-    canonical: "https://todosganamos.es/pronosticos",
+    canonical: "https://todosganamos.es/feed",
   },
   robots: {
     index: true,

@@ -13,7 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     {
-      url: `${baseUrl}/pronosticos`,
+      url: `${baseUrl}/feed`,
       lastModified,
       changeFrequency: "daily",
       priority: 0.8,
