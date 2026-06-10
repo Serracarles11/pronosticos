@@ -217,7 +217,7 @@ export function TodosGanamosShell({
         <div className="footer__inner">
           <AppLogo href={logoHref} />
           <nav className="footer__nav">
-            <Link href="/pronosticos">Pronosticos</Link>
+            <Link href="/feed">Pronosticos</Link>
             <Link href="/partidos">Partidos</Link>
             <Link href="/ranking">Ranking</Link>
             <Link href="/terminos">Terminos</Link>
