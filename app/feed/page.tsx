@@ -16,6 +16,30 @@ import {
   localizeFootballTeamName,
 } from "@/lib/football-data/localize";
 import { parsePronosticoSelections } from "@/lib/pronostico-selections";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Pronósticos deportivos gratis de fútbol hoy",
+  description:
+    "Consulta pronósticos deportivos gratis de fútbol, picks de la comunidad, cuotas informativas y análisis para apuestas sin dinero real en TodosGanamos.",
+  alternates: {
+    canonical: "https://todosganamos.es/feed",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    title: "Pronósticos deportivos gratis de fútbol hoy | TodosGanamos",
+    description:
+      "Consulta pronósticos deportivos gratis de fútbol, picks de la comunidad, cuotas informativas y análisis para apuestas sin dinero real.",
+    url: "https://todosganamos.es/feed",
+    siteName: "TodosGanamos",
+    type: "website",
+    locale: "es_ES",
+  },
+};
+
 
 const DEPORTES = ["Futbol", "Tenis", "NBA", "eSports", "Combinadas", "Otros"];
 const CATEGORIAS = [

@@ -16,41 +16,62 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(getPublicSiteOrigin()),
+
   title: {
-    default: "TodosGanamos - Pronosticos deportivos sin dinero real",
-    template: "%s - TodosGanamos",
+    default: "TodosGanamos | Pronósticos deportivos gratis",
+    template: "%s | TodosGanamos",
   },
-  description: "Comunidad de pronosticos deportivos para mayores de edad, sin dinero real.",
+
+  description:
+    "TodosGanamos es una comunidad de pronósticos deportivos gratis para mayores de edad, sin dinero real. Consulta picks, cuotas informativas y rankings de tipsters.",
+
   applicationName: "TodosGanamos",
+
   icons: {
     icon: [{ url: "/logo.webp", type: "image/webp" }],
     shortcut: "/logo.webp",
   },
+
   keywords: [
-    "pronosticos deportivos",
+    "pronósticos deportivos",
+    "pronósticos gratis",
+    "pronósticos fútbol",
+    "pronósticos fútbol hoy",
+    "apuestas deportivas gratis",
+    "picks deportivos",
     "tipsters",
-    "comunidad deportiva",
     "ranking tipsters",
+    "comunidad deportiva",
     "sin dinero real",
+    "TodosGanamos",
   ],
-  alternates: {
-    canonical: "/",
-  },
+
   openGraph: {
-    title: "TodosGanamos",
-    description: "Comunidad de pronosticos deportivos para mayores de edad, sin dinero real.",
+    title: "TodosGanamos | Pronósticos deportivos gratis",
+    description:
+      "Comunidad de pronósticos deportivos gratis para mayores de edad, sin dinero real. Consulta picks, cuotas informativas y rankings de tipsters.",
     url: "/",
     siteName: "TodosGanamos",
     locale: "es_ES",
     type: "website",
-    images: [{ url: "/logo.webp", width: 1254, height: 1254, alt: "TodosGanamos" }],
+    images: [
+      {
+        url: "/logo.webp",
+        width: 1254,
+        height: 1254,
+        alt: "TodosGanamos",
+      },
+    ],
   },
+
   twitter: {
     card: "summary",
-    title: "TodosGanamos",
-    description: "Comunidad de pronosticos deportivos para mayores de edad, sin dinero real.",
+    title: "TodosGanamos | Pronósticos deportivos gratis",
+    description:
+      "Comunidad de pronósticos deportivos gratis para mayores de edad, sin dinero real.",
     images: ["/logo.webp"],
   },
+
   robots: {
     index: true,
     follow: true,
