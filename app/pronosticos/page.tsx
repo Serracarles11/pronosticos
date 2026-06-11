@@ -6,15 +6,40 @@ import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 import { isMissingOptionalSchema } from "@/lib/anti-spam/server";
 
 export const metadata: Metadata = {
-  title: "Pronósticos deportivos gratis | TodosGanamos",
+  title: "Pronósticos deportivos gratis de fútbol hoy | TodosGanamos",
   description:
-    "Consulta pronósticos deportivos gratuitos de la comunidad, descubre picks, cuotas informativas y sigue a los mejores tipsters en TodosGanamos.",
+    "Consulta pronósticos deportivos gratis de fútbol, picks de la comunidad, cuotas informativas y análisis para apuestas sin dinero real en TodosGanamos.",
+  keywords: [
+    "pronósticos",
+    "pronósticos deportivos",
+    "pronósticos gratis",
+    "pronósticos fútbol hoy",
+    "apuestas deportivas gratis",
+    "picks deportivos",
+    "tipsters",
+    "TodosGanamos",
+  ],
   alternates: {
-    canonical: "https://todosganamos.es/feed",
+    canonical: "https://todosganamos.es/pronosticos",
   },
   robots: {
     index: true,
     follow: true,
+  },
+  openGraph: {
+    title: "Pronósticos deportivos gratis de fútbol hoy | TodosGanamos",
+    description:
+      "Consulta pronósticos deportivos gratis de fútbol, picks de la comunidad, cuotas informativas y análisis para apuestas sin dinero real.",
+    url: "https://todosganamos.es/pronosticos",
+    siteName: "TodosGanamos",
+    type: "website",
+    locale: "es_ES",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pronósticos deportivos gratis de fútbol hoy | TodosGanamos",
+    description:
+      "Consulta pronósticos deportivos gratis de fútbol, picks de la comunidad, cuotas informativas y análisis para apuestas sin dinero real.",
   },
 };
 
@@ -37,7 +62,10 @@ type PublicPronostico = {
 
 function avatarColor(username: string) {
   let h = 0;
-  for (let i = 0; i < username.length; i++) h = username.charCodeAt(i) + ((h << 5) - h);
+  for (let i = 0; i < username.length; i++) {
+    h = username.charCodeAt(i) + ((h << 5) - h);
+  }
+
   return COLORS[Math.abs(h) % COLORS.length];
 }
 
@@ -55,6 +83,7 @@ function estadoClassName(estado: string) {
 
 export default async function PronosticosPage() {
   const supabase = await createClient();
+
   const { data } = await supabase
     .from("pronosticos")
     .select(`
@@ -71,12 +100,16 @@ export default async function PronosticosPage() {
     const { data: moderationRows, error: moderationError } = await supabase
       .from("pronosticos")
       .select("id, moderation_status")
-      .in("id", pronosticos.map((item) => item.id));
+      .in(
+        "id",
+        pronosticos.map((item) => item.id)
+      );
 
     if (!isMissingOptionalSchema(moderationError) && !moderationError) {
       const moderationById = new Map(
         (moderationRows ?? []).map((row) => [row.id, row.moderation_status])
       );
+
       pronosticos = pronosticos.map((item) => ({
         ...item,
         moderation_status: moderationById.get(item.id) ?? "approved",
@@ -94,24 +127,50 @@ export default async function PronosticosPage() {
     );
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Pronósticos deportivos gratis de fútbol hoy",
+    description:
+      "Consulta pronósticos deportivos gratis de fútbol, picks de la comunidad, cuotas informativas y análisis para apuestas sin dinero real.",
+    url: "https://todosganamos.es/pronosticos",
+    publisher: {
+      "@type": "Organization",
+      name: "TodosGanamos",
+      url: "https://todosganamos.es",
+    },
+  };
+
   return (
     <TodosGanamosShell active="pronosticos">
       <main>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(jsonLd),
+          }}
+        />
+
         <section className="section">
           <div className="container">
             <div className="saved-page__header">
               <div>
                 <span className="badge badge--purple">Comunidad +18</span>
-                <h1>Pronósticos deportivos gratis</h1>
+
+                <h1>Pronósticos deportivos gratis de fútbol hoy</h1>
+
                 <p>
-                  Consulta pronósticos deportivos de la comunidad, descubre picks con cuotas
-                  informativas y sigue la actividad de tipsters en TodosGanamos.
+                  Consulta pronósticos deportivos gratis publicados por la comunidad de
+                  TodosGanamos. Encuentra picks de fútbol, cuotas informativas, mercados
+                  populares y análisis de partidos sin apostar dinero real.
                 </p>
               </div>
+
               <div className="hero__cta">
                 <Link className="btn btn--primary btn--lg" href="/ranking">
                   Ver ranking
                 </Link>
+
                 <Link className="btn btn--ghost btn--lg" href="/partidos">
                   Ver partidos
                 </Link>
@@ -126,9 +185,28 @@ export default async function PronosticosPage() {
               </span>
             </div>
 
+            <section style={{ marginBottom: 32 }}>
+              <h2>Pronósticos gratis para hoy</h2>
+              <p>
+                En esta página puedes encontrar pronósticos públicos recientes compartidos
+                por usuarios de la comunidad. Cada pick puede incluir evento, mercado,
+                cuota informativa, confianza y estado del pronóstico.
+              </p>
+            </section>
+
+            <section style={{ marginBottom: 32 }}>
+              <h2>Pronósticos de fútbol y apuestas deportivas sin dinero real</h2>
+              <p>
+                TodosGanamos no es una casa de apuestas. Es una plataforma informativa
+                donde los usuarios pueden compartir predicciones deportivas, seguir a otros
+                tipsters y comparar picks de fútbol de forma gratuita.
+              </p>
+            </section>
+
             <div className="section__head">
               <h2>Pronósticos públicos recientes</h2>
-              <Link className="section__link" href="/auth?tab=registro&next=/feed">
+
+              <Link className="section__link" href="/auth?tab=registro&next=/pronosticos">
                 Crear cuenta para participar →
               </Link>
             </div>
@@ -148,6 +226,7 @@ export default async function PronosticosPage() {
                           <span className={`avatar avatar--sm avatar--${color}`}>
                             {initials}
                           </span>
+
                           <div className="pred__author-meta">
                             <span className="pred__user">{username}</span>
                             <span className="pred__sub">
@@ -155,6 +234,7 @@ export default async function PronosticosPage() {
                             </span>
                           </div>
                         </div>
+
                         <span className={estadoClassName(pronostico.estado)}>
                           <span className="pill__dot" />
                           {estadoLabel(pronostico.estado)}
@@ -162,17 +242,20 @@ export default async function PronosticosPage() {
                       </header>
 
                       <h3 className="pred__title">{pronostico.evento}</h3>
+
                       <div className="pred__strip">
                         <div className="pred__cell">
                           <div className="pred__cell-label">Pronóstico</div>
                           <div className="pred__cell-value">{pronostico.mercado}</div>
                         </div>
+
                         <div className="pred__cell pred__cell--accent">
                           <div className="pred__cell-label">Cuota</div>
                           <div className="pred__cell-value mono">
                             {Number(pronostico.cuota).toFixed(2)}
                           </div>
                         </div>
+
                         <div className="pred__cell">
                           <div className="pred__cell-label">Confianza</div>
                           <div className="pred__cell-value">{pronostico.confianza}/5</div>
@@ -185,6 +268,7 @@ export default async function PronosticosPage() {
             ) : (
               <article className="card card__pad member-gate">
                 <span className="member-gate__icon">+</span>
+
                 <div>
                   <h2>Pronto habrá más pronósticos públicos</h2>
                   <p>
@@ -194,6 +278,28 @@ export default async function PronosticosPage() {
                 </div>
               </article>
             )}
+
+            <section style={{ marginTop: 40 }}>
+              <h2>Preguntas frecuentes sobre pronósticos deportivos</h2>
+
+              <h3>¿Los pronósticos de TodosGanamos son gratis?</h3>
+              <p>
+                Sí. Puedes consultar pronósticos deportivos gratis publicados por la
+                comunidad.
+              </p>
+
+              <h3>¿Hay pronósticos de fútbol hoy?</h3>
+              <p>
+                Sí. En TodosGanamos puedes encontrar picks de fútbol recientes con evento,
+                mercado, cuota informativa y nivel de confianza.
+              </p>
+
+              <h3>¿Se apuesta dinero real en TodosGanamos?</h3>
+              <p>
+                No. TodosGanamos es una comunidad informativa de pronósticos deportivos y
+                no permite depósitos ni apuestas con dinero real dentro de la app.
+              </p>
+            </section>
           </div>
         </section>
       </main>
