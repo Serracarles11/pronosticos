@@ -28,8 +28,14 @@ export const metadata: Metadata = {
   applicationName: "TodosGanamos",
 
   icons: {
-    icon: [{ url: "/logo.webp", type: "image/webp" }],
-    shortcut: "/logo.webp",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
 
   keywords: [
@@ -56,9 +62,9 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/logo.webp",
-        width: 1254,
-        height: 1254,
+        url: "/logo.png",
+        width: 1024,
+        height: 1024,
         alt: "TodosGanamos",
       },
     ],
@@ -69,7 +75,7 @@ export const metadata: Metadata = {
     title: "TodosGanamos | Pronósticos deportivos gratis",
     description:
       "Comunidad de pronósticos deportivos gratis para mayores de edad, sin dinero real.",
-    images: ["/logo.webp"],
+    images: ["/logo.png"],
   },
 
   robots: {
