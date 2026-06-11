@@ -29,13 +29,13 @@ export const metadata: Metadata = {
 
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/icon-48.png", sizes: "48x48", type: "image/png" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon-v2.ico", type: "image/x-icon" },
+      { url: "/icon-v2-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icon-v2-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-v2-512.png", sizes: "512x512", type: "image/png" },
     ],
-    shortcut: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    shortcut: "/favicon-v2.ico",
+    apple: "/apple-touch-icon-v2.png",
   },
 
   keywords: [
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/logo.png",
+        url: "/logo-v2.png",
         width: 1024,
         height: 1024,
         alt: "TodosGanamos",
@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     title: "TodosGanamos | Pronósticos deportivos gratis",
     description:
       "Comunidad de pronósticos deportivos gratis para mayores de edad, sin dinero real.",
-    images: ["/logo.png"],
+    images: ["/logo-v2.png"],
   },
 
   robots: {

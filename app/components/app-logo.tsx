@@ -17,7 +17,7 @@ export function AppLogo({ className = "", href = "/", preload = false }: AppLogo
           height={1254}
           preload={preload}
           sizes="(max-width: 480px) 24px, 32px"
-          src="/logo.png"
+          src="/logo-v2.png"
           width={1254}
         />
       </span>
