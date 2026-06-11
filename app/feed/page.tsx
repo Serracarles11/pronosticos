@@ -19,9 +19,19 @@ import { parsePronosticoSelections } from "@/lib/pronostico-selections";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pronósticos deportivos gratis de fútbol hoy",
+  title: "Pronósticos deportivos gratis de fútbol hoy | TodosGanamos",
   description:
     "Consulta pronósticos deportivos gratis de fútbol, picks de la comunidad, cuotas informativas y análisis para apuestas sin dinero real en TodosGanamos.",
+  keywords: [
+    "pronósticos",
+    "pronósticos deportivos",
+    "pronósticos gratis",
+    "pronósticos fútbol hoy",
+    "apuestas deportivas gratis",
+    "picks deportivos",
+    "tipsters",
+    "TodosGanamos",
+  ],
   alternates: {
     canonical: "https://todosganamos.es/feed",
   },
@@ -37,6 +47,12 @@ export const metadata: Metadata = {
     siteName: "TodosGanamos",
     type: "website",
     locale: "es_ES",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Pronósticos deportivos gratis de fútbol hoy | TodosGanamos",
+    description:
+      "Consulta pronósticos deportivos gratis de fútbol, picks de la comunidad, cuotas informativas y análisis para apuestas sin dinero real.",
   },
 };
 
