@@ -13,11 +13,37 @@ function normalizeDate(value: string | null) {
   return value.trim().slice(0, 40) || null;
 }
 
+function splitBuilderSelections(result: BetslipExtractionResult) {
+  return result.selections.flatMap((selection) => {
+    const shouldKeepOdds = !selection.isBuilder || !result.totalOdds;
+    if (!selection.isBuilder || !selection.selection) {
+      return [{ ...selection, odds: shouldKeepOdds ? selection.odds : null }];
+    }
+
+    const parts = selection.selection
+      .split(/\s+\+\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (parts.length <= 1) return [{ ...selection, odds: shouldKeepOdds ? selection.odds : null }];
+
+    return parts.map((part, index) => ({
+      ...selection,
+      selection: part,
+      odds: shouldKeepOdds && index === 0 ? selection.odds : null,
+      rawText: selection.rawText ?? selection.selection,
+      warnings: index === 0
+        ? [...selection.warnings, "Builder separado en condiciones individuales para revision."]
+        : selection.warnings,
+    }));
+  });
+}
+
 export function normalizeExtractedBetslip(result: BetslipExtractionResult): BetslipExtractionResult {
   return validateExtractedBetslip({
     ...result,
     bookmaker: normalizeBookmaker(result.bookmaker),
-    selections: result.selections.map((selection) => ({
+    selections: splitBuilderSelections(result).map((selection) => ({
       ...selection,
       event: selection.event?.trim().slice(0, 160) || null,
       date: normalizeDate(selection.date),

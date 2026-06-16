@@ -313,8 +313,9 @@ export default async function PublicUserPage({ params, searchParams }: Props) {
                 {activeTab === "resumen" && picks.length > 5 && <Link className="btn btn--ghost" href={tabHref("picks")}>Ver todos</Link>}
               </div>
               {visiblePicks.length > 0 ? visiblePicks.map((pick) => (
-                <Link className="card profile__row" href={`/detalle?id=${pick.id}`} key={pick.id}>
+                <Link className="card profile__row profile__row--compact" href={`/detalle?id=${pick.id}`} key={pick.id}>
                   <div className="profile__row-body">
+                    <h3 className="profile__row-title-clean">{pick.evento}</h3>
                     <h3>{pick.evento} - {pick.mercado}</h3>
                     <span className="profile__row-meta">
                       {pick.competicion ?? "Competicion no indicada"} - {timeAgo(pick.created_at)}

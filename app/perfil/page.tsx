@@ -245,11 +245,12 @@ export default async function PerfilPage({
                 filtered.map((p) => (
                   <Link
                     href={`/detalle?id=${p.id}`}
-                    className="card profile__row"
+                    className="card profile__row profile__row--compact"
                     key={p.id}
-                    style={{ textDecoration: "none", display: "block" }}
+                    style={{ textDecoration: "none" }}
                   >
                     <div className="profile__row-body">
+                      <h3 className="profile__row-title-clean">{p.evento}</h3>
                       <h3>
                         {p.evento} · {p.mercado}
                       </h3>

@@ -1,5 +1,5 @@
 export const BETSLIP_VISION_EXTRACTION_PROMPT = `
-Analiza esta captura de una apuesta deportiva. Extrae unicamente la informacion visible. No inventes datos. Si algo no se ve claro, usa null y anade un warning. Diferencia entre importe/stake, cuota total, ganancia potencial, booster, cuota individual, evento, mercado y seleccion. No confundas fechas, horas, IDs de ticket, porcentajes ni importes con cuotas. Si hay MyMatch, Bet Builder o Same Game Multi, agrupa todas las condiciones de ese bloque dentro de una sola seleccion con una unica cuota. Devuelve solo JSON valido siguiendo el esquema indicado.
+Analiza esta captura de una apuesta deportiva. Extrae unicamente la informacion visible. No inventes datos. Si algo no se ve claro, usa null y anade un warning. Diferencia entre importe/stake, cuota total, ganancia potencial, booster, cuota individual, evento, mercado y seleccion. No confundas fechas, horas, IDs de ticket, porcentajes ni importes con cuotas. Si hay MyMatch, Bet Builder o Same Game Multi, devuelve cada condicion del builder como una seleccion independiente, no juntes varias condiciones con "+". Si el builder solo muestra una cuota conjunta, pon esa cuota en totalOdds y deja odds como null en cada condicion. Devuelve solo JSON valido siguiendo el esquema indicado.
 
 Reglas importantes:
 - "Importe 3 EUR" o "Importe 3 €" = stake 3.
@@ -32,8 +32,20 @@ Salida esperada:
       "event": "Canada - Bosnia y Herzegovina",
       "date": "12/06/2026",
       "market": "MyMatch",
-      "selection": "Jugador decisivo: Tajon Buchanan + Jugador decisivo: Edin Dzeko + Jugador decisivo: Esmir Bajraktarevic",
-      "odds": 20,
+      "selection": "Jugador decisivo: Tajon Buchanan",
+      "odds": null,
+      "isBuilder": true,
+      "builderType": "mymatch",
+      "rawText": null,
+      "confidence": 0.9,
+      "warnings": []
+    },
+    {
+      "event": "Canada - Bosnia y Herzegovina",
+      "date": "12/06/2026",
+      "market": "MyMatch",
+      "selection": "Jugador decisivo: Edin Dzeko",
+      "odds": null,
       "isBuilder": true,
       "builderType": "mymatch",
       "rawText": null,

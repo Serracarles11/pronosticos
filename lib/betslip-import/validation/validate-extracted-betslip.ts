@@ -1,8 +1,16 @@
 import type { BetslipExtractionResult, BetslipSelection } from "../providers/provider.ts";
 import { calculateExtractedTotalOdds, oddsApproximatelyMatch } from "./calculate-total-odds.ts";
 
+function hasValidOdds(selection: BetslipSelection) {
+  return typeof selection.odds === "number" && Number.isFinite(selection.odds) && selection.odds >= 1.01;
+}
+
 function hasUsableSelection(selection: BetslipSelection) {
-  return Boolean(selection.event && selection.odds && (selection.market || selection.selection));
+  return Boolean(
+    selection.event &&
+      (selection.market || selection.selection) &&
+      (hasValidOdds(selection) || selection.isBuilder)
+  );
 }
 
 function confidenceWithStakeReturnCheck(result: BetslipExtractionResult) {

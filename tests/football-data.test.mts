@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  findFootballMatchForImportedEvent,
+  latestImportedKickoff,
+} from "../lib/bet-import/match-kickoff.ts";
 import { dedupeFootballMatches, mapFootballDataStatus, normalizeFootballDataMatch } from "../lib/football-data/mapper.ts";
+import type { FootballMatchPickerItem } from "../lib/football-data/types.ts";
 import { footballTeamSearchTerms, localizeFootballTeamName } from "../lib/football-data/localize.ts";
 import { shouldSyncFullSeasonCompetition } from "../lib/football-data/sync.ts";
 import { upsertFootballMatch } from "../lib/football-data/upsert.ts";
@@ -59,6 +64,78 @@ test("syncs World Cup as a full active-season competition", () => {
   assert.equal(shouldSyncFullSeasonCompetition("WC"), true);
   assert.equal(shouldSyncFullSeasonCompetition("PD"), false);
   assert.equal(shouldSyncFullSeasonCompetition("CL", ["WC", "CL"]), true);
+});
+
+test("matches imported OCR events to stored football matches", () => {
+  const matches: FootballMatchPickerItem[] = [
+    {
+      id: "match-1",
+      external_id: "1",
+      competition_code: "WC",
+      competition_name: "Mundial",
+      competition_emblem: null,
+      home_team_name: "Canada",
+      home_team_short_name: null,
+      home_team_crest: null,
+      away_team_name: "Catar",
+      away_team_short_name: null,
+      away_team_crest: null,
+      kickoff_at: "2026-06-19T00:00:00.000Z",
+      status: "scheduled",
+      home_score: null,
+      away_score: null,
+    },
+    {
+      id: "match-2",
+      external_id: "2",
+      competition_code: "WC",
+      competition_name: "Mundial",
+      competition_emblem: null,
+      home_team_name: "Francia",
+      home_team_short_name: null,
+      home_team_crest: null,
+      away_team_name: "Senegal",
+      away_team_short_name: null,
+      away_team_crest: null,
+      kickoff_at: "2026-06-16T19:00:00.000Z",
+      status: "scheduled",
+      home_score: null,
+      away_score: null,
+    },
+  ];
+
+  assert.equal(findFootballMatchForImportedEvent("Canadá - Catar", matches)?.id, "match-1");
+  assert.equal(
+    findFootballMatchForImportedEvent("Francia - Senegal - Francia - Senegal: Resultado Francia", matches)?.id,
+    "match-2"
+  );
+});
+
+test("uses the latest matched kickoff to close combined imported picks", () => {
+  const kickoff = latestImportedKickoff("2026-06-16T19:00:00.000Z", [
+    {
+      eventName: "Francia - Senegal",
+      competition: "Mundial",
+      market: "Resultado",
+      selection: "Francia",
+      odds: null,
+      kickoffAt: "2026-06-16T19:00:00.000Z",
+      confidence: 0.9,
+      rawText: "",
+    },
+    {
+      eventName: "Canada - Catar",
+      competition: "Mundial",
+      market: "Resultado",
+      selection: "Canada",
+      odds: null,
+      kickoffAt: "2026-06-19T00:00:00.000Z",
+      confidence: 0.9,
+      rawText: "",
+    },
+  ]);
+
+  assert.equal(kickoff, "2026-06-19T00:00:00.000Z");
 });
 
 test("upsert marks duplicate football matches as updated", async () => {

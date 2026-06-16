@@ -188,6 +188,16 @@ function totalOddsMatch(calculated: number | null, detected: number | null) {
   return Math.abs(calculated - detected) <= Math.max(0.03, detected * 0.005);
 }
 
+function importTotalOddsForSelections(
+  selections: ImportedBetSelection[],
+  fallback: number | null | undefined
+) {
+  const calculated = combinedOdds(
+    selections.map((selection) => ({ mercado: selection.selection, cuota: String(selection.odds ?? "") }))
+  );
+  return calculated > 1.01 ? calculated : fallback ?? null;
+}
+
 function toDatetimeLocal(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -342,9 +352,7 @@ export default function NuevoPage() {
         ...current,
         kind: selections.length > 1 ? "combinada" : "simple",
         selections,
-        totalOdds: combinedOdds(
-          selections.map((selection) => ({ mercado: selection.selection, cuota: String(selection.odds ?? "") }))
-        ),
+        totalOdds: importTotalOddsForSelections(selections, current.detectedTotalOdds ?? current.totalOdds),
       };
     });
   }
@@ -360,9 +368,7 @@ export default function NuevoPage() {
       return {
         ...current,
         selections,
-        totalOdds: combinedOdds(
-          selections.map((selection) => ({ mercado: selection.selection, cuota: String(selection.odds ?? "") }))
-        ),
+        totalOdds: importTotalOddsForSelections(selections, current.detectedTotalOdds ?? current.totalOdds),
       };
     });
   }
@@ -395,9 +401,7 @@ export default function NuevoPage() {
         ...current,
         kind: selections.length > 1 ? "combinada" : "simple",
         selections,
-        totalOdds: combinedOdds(
-          selections.map((selection) => ({ mercado: selection.selection, cuota: String(selection.odds ?? "") }))
-        ),
+        totalOdds: importTotalOddsForSelections(selections, current.detectedTotalOdds ?? current.totalOdds),
       };
     });
   }
@@ -407,9 +411,7 @@ export default function NuevoPage() {
       if (!current) return current;
       const selectedOdds = current.selections[idx]?.odds ?? null;
       const selections = current.selections.filter((_, selectionIdx) => selectionIdx !== idx);
-      const calculatedTotal = combinedOdds(
-        selections.map((selection) => ({ mercado: selection.selection, cuota: String(selection.odds ?? "") }))
-      );
+      const calculatedTotal = importTotalOddsForSelections(selections, null);
       return {
         ...current,
         kind: selections.length > 1 ? "combinada" : "simple",
@@ -993,7 +995,9 @@ export default function NuevoPage() {
                                   updateImportSelection(
                                     idx,
                                     "odds",
-                                    Number(normalizeOddsInput(parseFloat(event.target.value)))
+                                    event.target.value.trim()
+                                      ? Number(normalizeOddsInput(parseFloat(event.target.value)))
+                                      : null
                                   )
                                 }
                                 onChange={(event) =>
@@ -1067,56 +1071,6 @@ export default function NuevoPage() {
                               La cuota detectada no coincide con el producto de las selecciones.
                             </div>
                           )}
-                        </div>
-                        <div className="field">
-                          <label className="field__label">Stake simulado</label>
-                          <input
-                            className="input mono"
-                            max="100"
-                            min="0.1"
-                            onChange={(event) =>
-                              updateImportReview(
-                                "stakeSimulated",
-                                event.target.value ? Number(event.target.value) : null
-                              )
-                            }
-                            step="0.1"
-                            type="number"
-                            value={importReview.stakeSimulated ?? ""}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="publish__grid-2">
-                        <div className="field">
-                          <label className="field__label">Ganancia potencial detectada</label>
-                          <input
-                            className="input mono"
-                            onChange={(event) =>
-                              updateImportReview(
-                                "potentialReturnDetected",
-                                event.target.value ? Number(event.target.value) : null
-                              )
-                            }
-                            step="0.01"
-                            type="number"
-                            value={importReview.potentialReturnDetected ?? ""}
-                          />
-                        </div>
-                        <div className="field">
-                          <label className="field__label">Combo booster detectado (%)</label>
-                          <input
-                            className="input mono"
-                            onChange={(event) =>
-                              updateImportReview(
-                                "boosterPercent",
-                                event.target.value ? Number(event.target.value) : null
-                              )
-                            }
-                            step="0.01"
-                            type="number"
-                            value={importReview.boosterPercent ?? ""}
-                          />
                         </div>
                       </div>
 
@@ -1476,22 +1430,6 @@ export default function NuevoPage() {
                   </select>
                   <div className="field__hint">Solo como referencia informativa de la cuota.</div>
                 </div>
-                <div className="field">
-                  <label className="field__label" htmlFor="stake_simulado">
-                    Stake simulado
-                  </label>
-                  <input
-                    className="input mono"
-                    defaultValue="1"
-                    id="stake_simulado"
-                    max="100"
-                    min="0.1"
-                    name="stake_simulado"
-                    step="0.1"
-                    type="number"
-                  />
-                  <div className="field__hint">Unidades ficticias. Nunca representa dinero real.</div>
-                </div>
               </div>
 
               <div className="field">
@@ -1567,7 +1505,7 @@ export default function NuevoPage() {
 
           <aside className="publish__aside">
             <h4 className="side-section__title">Vista previa en el feed</h4>
-            <article className="card card--featured pred">
+            <article className="card card--featured pred publish-preview-card">
               <header className="pred__head">
                 <div className="pred__author">
                   <span className="avatar avatar--md avatar--blue">YO</span>
@@ -1616,16 +1554,6 @@ export default function NuevoPage() {
                 <span className="badge badge--purple">Incluye link de copia</span>
               )}
             </article>
-
-            <div className="notice publish__notice">
-              <span className="notice__icon">i</span>
-              <div>
-                <strong className="notice__title">Recuerda</strong>
-                <span className="notice__body">
-                  TodosGanamos es una comunidad de pronosticos. No se apuesta dinero real.
-                </span>
-              </div>
-            </div>
 
             <div className="publish__tips">
               <h4 className="side-section__title">Tips de la comunidad</h4>

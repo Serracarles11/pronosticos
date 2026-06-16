@@ -84,23 +84,27 @@ test("valid OpenAI JSON is parsed and normalized", () => {
   });
 
   assert.equal(normalized.bookmaker, "winamax");
-  assert.equal(normalized.calculatedTotalOdds, 380);
-  assert.equal(normalized.totalOddsMatch, true);
-  assert.equal(normalized.confidence > 0.9, true);
+  assert.equal(normalized.totalOdds, 380);
+  assert.equal(normalized.calculatedTotalOdds, null);
+  assert.equal(normalized.totalOddsMatch, null);
+  assert.equal(normalized.selections.length, 3);
 });
 
 test("calculatedTotalOdds works with integer builder odds", () => {
   assert.equal(calculateExtractedTotalOdds(baseExtraction().selections), 380);
 });
 
-test("MyMatch remains grouped as one selection per event", () => {
+test("MyMatch builder conditions are split into separate review rows", () => {
   const review = createReviewPayload(normalizeExtractedBetslip(baseExtraction()));
 
-  assert.equal(review.selections.length, 2);
+  assert.equal(review.selections.length, 3);
   assert.equal(review.selections[0].market, "MyMatch");
   assert.equal(review.selections[0].isBuilder, true);
   assert.equal(review.selections[0].builderType, "mymatch");
-  assert.match(review.selections[0].selection, /Tajon Buchanan/);
+  assert.equal(review.selections[0].selection, "Jugador decisivo: Tajon Buchanan");
+  assert.equal(review.selections[1].selection, "Jugador decisivo: Edin Dzeko");
+  assert.equal(review.selections[2].selection, "Jugador decisivo: Miguel Almiron");
+  assert.equal(review.selections[0].odds, null);
 });
 
 test("total odds 380 is not converted into a selection", () => {
@@ -123,7 +127,7 @@ test("total odds 380 is not converted into a selection", () => {
   }));
 
   assert.equal(normalized.totalOdds, 380);
-  assert.equal(normalized.selections.length, 2);
+  assert.equal(normalized.selections.length, 3);
 });
 
 test("invalid JSON shape throws before review payload", () => {

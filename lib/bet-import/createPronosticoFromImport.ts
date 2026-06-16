@@ -10,6 +10,7 @@ import {
 } from "@/lib/anti-spam/server";
 import { normalizePickCategories } from "@/lib/pronostico-meta";
 import { canPublishBetImport } from "./access.ts";
+import { latestImportedKickoff, resolveImportedSelectionKickoffs } from "./match-kickoff.ts";
 import { calculateTotalOdds } from "./parser.ts";
 import type { ConfirmBetImportPayload } from "./types.ts";
 
@@ -66,18 +67,22 @@ export async function createCombinedPickFromImport(
     return { error: "Esta importacion no esta lista para publicarse." };
   }
 
-  const eventName = cleanText(payload.eventName || payload.selections[0]?.eventName, "Evento importado");
-  const mercado = buildMarket(payload);
-  const cuota = resolveTotalOdds(payload);
+  const resolvedSelections = await resolveImportedSelectionKickoffs(supabase, payload.selections);
+  const resolvedKickoffAt = latestImportedKickoff(payload.kickoffAt, resolvedSelections);
+  const resolvedPayload = { ...payload, selections: resolvedSelections, kickoffAt: resolvedKickoffAt };
+
+  const eventName = cleanText(resolvedPayload.eventName || resolvedPayload.selections[0]?.eventName, "Evento importado");
+  const mercado = buildMarket(resolvedPayload);
+  const cuota = resolveTotalOdds(resolvedPayload);
   const confianza = 3;
-  const deporte = cleanText(payload.sport, "Futbol");
-  const competicion = cleanText(payload.competition, "Importada");
+  const deporte = cleanText(resolvedPayload.sport, "Futbol");
+  const competicion = cleanText(resolvedPayload.competition, "Importada");
   const explicacion =
-    cleanText(payload.explanation, "Combinada importada desde captura y revisada por el usuario.");
-  const visibilidad = ["publico", "seguidores", "borrador"].includes(payload.visibility)
-    ? payload.visibility
+    cleanText(resolvedPayload.explanation, "Combinada importada desde captura y revisada por el usuario.");
+  const visibilidad = ["publico", "seguidores", "borrador"].includes(resolvedPayload.visibility)
+    ? resolvedPayload.visibility
     : "publico";
-  const stakeSimulado = payload.stakeSimulated && payload.stakeSimulated > 0 ? payload.stakeSimulated : 1;
+  const stakeSimulado = resolvedPayload.stakeSimulated && resolvedPayload.stakeSimulated > 0 ? resolvedPayload.stakeSimulated : 1;
 
   if (!cuota || cuota < 1.01) return { error: "Revisa las cuotas antes de publicar." };
 
@@ -86,7 +91,7 @@ export async function createCombinedPickFromImport(
     deporte,
     competicion,
     evento: eventName,
-    fechaEvento: payload.kickoffAt ?? "",
+    fechaEvento: resolvedKickoffAt ?? "",
   });
 
   const pickRateLimit = await checkPickRateLimit(supabase, userId);
@@ -109,10 +114,10 @@ export async function createCombinedPickFromImport(
 
   if (selectionDeleteError) return { error: selectionDeleteError.message };
 
-  if (payload.selections.length > 0) {
+  if (resolvedPayload.selections.length > 0) {
     const { error: selectionInsertError } = await supabase.from("imported_bet_selections").insert(
-      payload.selections.map((selection) => ({
-        import_id: payload.importId,
+      resolvedPayload.selections.map((selection) => ({
+        import_id: resolvedPayload.importId,
         event_name: selection.eventName || null,
         competition: selection.competition || null,
         market: selection.market || null,
@@ -135,9 +140,9 @@ export async function createCombinedPickFromImport(
       cuota,
       confianza,
       explicacion,
-      fecha_evento: payload.kickoffAt,
+      fecha_evento: resolvedKickoffAt,
       visibilidad,
-      bookmaker: payload.bookmaker && payload.bookmaker !== "unknown" ? payload.bookmaker.slice(0, 40) : null,
+      bookmaker: resolvedPayload.bookmaker && resolvedPayload.bookmaker !== "unknown" ? resolvedPayload.bookmaker.slice(0, 40) : null,
       stake_simulado: stakeSimulado,
       cuota_tomada_at: new Date().toISOString(),
       categorias: normalizePickCategories(["mundial", "combinada", "importada"].join(",")),
@@ -168,7 +173,7 @@ export async function createCombinedPickFromImport(
         cuota,
         confianza,
         explicacion,
-        fecha_evento: payload.kickoffAt,
+        fecha_evento: resolvedKickoffAt,
         visibilidad,
         categorias: normalizePickCategories(["mundial", "combinada", "importada"].join(",")),
         event_key: eventKey || null,
@@ -191,10 +196,10 @@ export async function createCombinedPickFromImport(
     .from("bet_imports")
     .update({
       status: "confirmed",
-      bookmaker: payload.bookmaker && payload.bookmaker !== "unknown" ? payload.bookmaker : null,
-      parsed_json: payload,
+      bookmaker: resolvedPayload.bookmaker && resolvedPayload.bookmaker !== "unknown" ? resolvedPayload.bookmaker : null,
+      parsed_json: resolvedPayload,
     })
-    .eq("id", payload.importId)
+    .eq("id", resolvedPayload.importId)
     .eq("user_id", userId);
 
   if (updateError) return { error: updateError.message };

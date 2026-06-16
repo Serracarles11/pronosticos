@@ -3872,6 +3872,100 @@ button {
   border: 0;
 }
 
+.publish-preview-card {
+  gap: 14px;
+  padding: 20px;
+  overflow: hidden;
+  border-color: #cbd6e8;
+  border-radius: 20px;
+}
+
+.publish-preview-card .pred__head {
+  align-items: center;
+  gap: 12px;
+}
+
+.publish-preview-card .pred__author {
+  min-width: 0;
+}
+
+.publish-preview-card .pred__author .avatar {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  font-size: 17px;
+}
+
+.publish-preview-card .pred__author-meta {
+  gap: 2px;
+}
+
+.publish-preview-card .pred__user {
+  font-size: 16px;
+}
+
+.publish-preview-card .pred__sub {
+  font-size: 13px;
+}
+
+.publish-preview-card .pill {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.publish-preview-card .pred__title {
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.publish-preview-card .pred-meta-list {
+  gap: 6px;
+}
+
+.publish-preview-card .pred-meta-list .badge {
+  padding: 7px 11px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.publish-preview-card .pred__strip {
+  grid-template-columns: minmax(0, 1fr) minmax(106px, 0.72fr) minmax(132px, 0.88fr);
+  gap: 10px;
+}
+
+.publish-preview-card .pred__cell {
+  min-height: 76px;
+  padding: 11px 12px;
+  overflow: hidden;
+}
+
+.publish-preview-card .pred__cell-value {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 15px;
+}
+
+.publish-preview-card .pred__cell--accent .pred__cell-value {
+  font-size: 30px;
+  line-height: 1.05;
+}
+
+.publish-preview-card .pred__confidence span {
+  width: 20px;
+}
+
+.publish-preview-card .pred__body {
+  margin-top: 2px;
+  padding: 13px 16px;
+  border-radius: 15px;
+  border-left-width: 3px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
 .publish__tips {
   margin-top: 28px;
   padding: 20px;
@@ -4028,7 +4122,9 @@ button {
 }
 
 .public-profile__tabs {
-  overflow-x: auto;
+  display: flex;
+  flex-wrap: wrap;
+  overflow: visible;
 }
 
 .public-profile__section-head {
@@ -4093,15 +4189,45 @@ button {
   gap: 16px;
 }
 
+.profile__row--compact {
+  display: flex;
+  align-items: center;
+  min-height: 72px;
+  text-decoration: none;
+}
+
+.profile__row--compact .profile__row-body {
+  min-width: 0;
+}
+
+.profile__row-title-clean {
+  display: block;
+}
+
+.profile__row--compact .profile__row-title-clean + h3,
+.profile__row--compact .profile__row-meta,
+.profile__row--compact .profile__row-stats > :not(.profile__cuota) {
+  display: none;
+}
+
+.profile__row--compact h3 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .profile__row-stats {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .profile__cuota {
   color: var(--blue-700);
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .profile__trend {
@@ -5704,6 +5830,22 @@ button {
     width: 100%;
   }
 
+  .publish-preview-card {
+    padding: 18px;
+  }
+
+  .publish-preview-card .pred__head {
+    align-items: flex-start;
+  }
+
+  .publish-preview-card .pred__strip {
+    grid-template-columns: 1fr;
+  }
+
+  .publish-preview-card .pred__cell {
+    min-height: 72px;
+  }
+
   .bet-import__head,
   .bet-review__top,
   .bet-import__upload {
@@ -5849,7 +5991,8 @@ button {
 
   .profile__tabs {
     display: flex;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    overflow: visible;
     scrollbar-width: none;
   }
 
