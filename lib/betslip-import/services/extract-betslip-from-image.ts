@@ -4,6 +4,7 @@ import type { BetslipExtractionResult, BetslipExtractorInput, BetslipExtractorPr
 import { normalizeExtractedBetslip } from "../validation/normalize-extracted-betslip.ts";
 
 function isTesseractFallbackEnabled() {
+  if (process.env.VERCEL === "1" || process.env.VERCEL_ENV) return false;
   return process.env.ENABLE_TESSERACT_FALLBACK !== "false";
 }
 
@@ -26,6 +27,9 @@ export async function extractBetslipFromImage(
   const configuredProvider = options.provider ?? providerName();
 
   if (configuredProvider !== "openai") {
+    if (process.env.VERCEL === "1" || process.env.VERCEL_ENV) {
+      throw new Error("Tesseract no esta disponible en Vercel. Usa BETSLIP_EXTRACTOR_PROVIDER=openai con OPENAI_API_KEY.");
+    }
     return normalizeExtractedBetslip(await tesseract.extract(input));
   }
 

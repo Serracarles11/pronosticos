@@ -7,6 +7,7 @@ import { extractBetslipFromImage } from "@/lib/betslip-import/services/extract-b
 import { createReviewPayload } from "@/lib/betslip-import/services/create-review-payload";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function importsPerHour() {
   const value = Number(process.env.BETSLIP_IMPORT_MAX_PER_HOUR);
@@ -35,6 +36,14 @@ function userFacingImportError(error: unknown) {
 
   if (normalized.includes("traineddata") || normalized.includes("lang")) {
     return "No se pudo cargar el idioma OCR. Revisa la conexion del servidor o configura BET_IMPORT_OCR_LANGS=eng.";
+  }
+
+  if (normalized.includes("openai_api_key")) {
+    return "Falta configurar OPENAI_API_KEY en Vercel para procesar capturas con IA.";
+  }
+
+  if (normalized.includes("tesseract") && normalized.includes("vercel")) {
+    return "El OCR basico local no esta disponible en Vercel. Configura OPENAI_API_KEY y usa BETSLIP_EXTRACTOR_PROVIDER=openai.";
   }
 
   return message;

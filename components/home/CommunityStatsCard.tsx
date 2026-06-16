@@ -14,22 +14,6 @@ type CommunityStatsCardProps = {
   error?: boolean;
 };
 
-function formatRelativeTime(value: string) {
-  const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "";
-
-  const diff = Date.now() - timestamp;
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "hace 1 min";
-  if (minutes < 60) return `hace ${minutes} min`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `hace ${hours} h`;
-  if (hours < 48) return "ayer";
-
-  return `hace ${Math.floor(hours / 24)} días`;
-}
-
 function initialsFor(name: string) {
   return (
     name
@@ -76,7 +60,7 @@ export function CommunityStatsCard({
                 waitForAgeGate
               />
             </strong>
-            <span>usuarios registrados</span>
+            <span>usuarios activos</span>
           </div>
 
           <div className="community-card__divider" />
@@ -99,7 +83,6 @@ export function CommunityStatsCard({
                       )}
                     </span>
                     <span className="community-card__name">{label}</span>
-                    <span className="community-card__time">{formatRelativeTime(user.createdAt)}</span>
                   </li>
                 );
               })}

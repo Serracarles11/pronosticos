@@ -170,6 +170,45 @@ test("without fallback OpenAI provider failure bubbles up", async () => {
   );
 });
 
+test("Vercel runtime does not fall back to local Tesseract OCR", async () => {
+  const previousVercel = process.env.VERCEL;
+  const previousVercelEnv = process.env.VERCEL_ENV;
+  const previousFallback = process.env.ENABLE_TESSERACT_FALLBACK;
+  process.env.VERCEL = "1";
+  process.env.VERCEL_ENV = "production";
+  delete process.env.ENABLE_TESSERACT_FALLBACK;
+
+  const primaryProvider: BetslipExtractorProvider = {
+    name: "openai",
+    async extract() {
+      throw new Error("missing key");
+    },
+  };
+  const fallbackProvider: BetslipExtractorProvider = {
+    name: "tesseract",
+    async extract() {
+      throw new Error("fallback should not run");
+    },
+  };
+
+  try {
+    await assert.rejects(
+      extractBetslipFromImage(
+        { imageBuffer: Buffer.from("image"), mimeType: "image/png", userId: "user-a" },
+        { provider: "openai", primaryProvider, fallbackProvider }
+      ),
+      /missing key/
+    );
+  } finally {
+    if (previousVercel === undefined) delete process.env.VERCEL;
+    else process.env.VERCEL = previousVercel;
+    if (previousVercelEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousVercelEnv;
+    if (previousFallback === undefined) delete process.env.ENABLE_TESSERACT_FALLBACK;
+    else process.env.ENABLE_TESSERACT_FALLBACK = previousFallback;
+  }
+});
+
 test("SVG images are rejected for AI extraction uploads", () => {
   assert.equal(validateBetSlipImage({ name: "ticket.svg", size: 1200, type: "image/svg+xml" }).ok, false);
 });

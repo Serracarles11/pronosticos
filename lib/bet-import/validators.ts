@@ -1,9 +1,9 @@
 function maxFileSizeMb() {
   const value = Number(process.env.BETSLIP_IMPORT_MAX_FILE_MB);
-  return Number.isFinite(value) && value > 0 ? value : 5;
+  return Number.isFinite(value) && value > 0 ? value : 4;
 }
 
-export const BETSLIP_MAX_FILE_SIZE = 5 * 1024 * 1024;
+export const BETSLIP_MAX_FILE_SIZE = 4 * 1024 * 1024;
 export const BETSLIP_ALLOWED_MIME_TYPES = new Set([
   "image/png",
   "image/jpeg",

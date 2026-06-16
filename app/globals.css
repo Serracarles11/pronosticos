@@ -2292,9 +2292,9 @@ button {
 
 .community-card__total strong {
   display: block;
-  min-height: 68px;
+  min-height: 86px;
   color: var(--blue-500);
-  font-size: 68px;
+  font-size: 86px;
   line-height: 1;
   font-weight: 850;
   letter-spacing: 0;
@@ -2305,7 +2305,7 @@ button {
   min-width: 1ch;
 }
 
-.community-card__total span {
+.community-card__total > span {
   color: var(--text-2);
   font-size: 15px;
   font-weight: 700;
@@ -2333,7 +2333,7 @@ button {
 
 .community-card__user {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 38px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 11px 0;
@@ -2433,6 +2433,16 @@ button {
 .grid--3,
 .ranking-grid {
   grid-template-columns: repeat(3, 1fr);
+}
+
+.home-featured-list {
+  max-width: 920px;
+  display: grid;
+  gap: 18px;
+}
+
+.home-featured-card {
+  border-color: rgba(200, 210, 226, 0.95);
 }
 
 .rank-card {
@@ -2552,11 +2562,11 @@ button {
 }
 
 .feed__filters {
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   align-items: stretch;
   justify-content: flex-start;
-  flex-direction: column;
+  flex-direction: row;
 }
 
 .feed__filters-main {
@@ -2569,6 +2579,15 @@ button {
 .feed__filters-primary,
 .feed__advanced-filters .cluster {
   flex-wrap: wrap;
+}
+
+.feed__filters-primary {
+  align-items: center;
+  gap: 10px;
+}
+
+.feed__filters-primary .feed-filter-dropdown {
+  width: auto;
 }
 
 .feed__advanced-filters {
@@ -5129,8 +5148,8 @@ button {
   }
 
   .community-card__total strong {
-    font-size: 56px;
-    min-height: 56px;
+    font-size: 70px;
+    min-height: 70px;
   }
 
   .feed__filter-mobile {
@@ -5509,7 +5528,8 @@ button {
   }
 
   .feed-filter-dropdown {
-    width: 100%;
+    width: auto;
+    flex: 0 0 auto;
   }
 
   .feed-filter-dropdown__button {

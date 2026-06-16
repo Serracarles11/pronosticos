@@ -64,6 +64,7 @@ function importProgressLabel(value: number) {
 const OCR_TARGET_MAX_WIDTH = 1280;
 const OCR_TARGET_MAX_HEIGHT = 2200;
 const OCR_JPEG_QUALITY = 0.84;
+const OCR_MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 function enhanceCanvasForOcr(canvas: HTMLCanvasElement) {
   const context = canvas.getContext("2d", { willReadFrequently: true });
@@ -104,9 +105,19 @@ async function optimizeBetSlipImageForOcr(file: File) {
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     enhanceCanvasForOcr(canvas);
 
-    const blob = await new Promise<Blob | null>((resolve) =>
+    let blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", OCR_JPEG_QUALITY)
     );
+    if (blob && blob.size > OCR_MAX_UPLOAD_BYTES) {
+      for (const quality of [0.76, 0.68, 0.6]) {
+        const smallerBlob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob(resolve, "image/jpeg", quality)
+        );
+        if (!smallerBlob) continue;
+        blob = smallerBlob;
+        if (smallerBlob.size <= OCR_MAX_UPLOAD_BYTES) break;
+      }
+    }
     if (!blob) return file;
     if (scale === 1 && blob.size > file.size * 1.15) return file;
 
@@ -431,6 +442,9 @@ export default function NuevoPage() {
       const preparedFile = await optimizeBetSlipImageForOcr(importFile);
       if (preparedFile !== importFile) {
         setImportProgress({ value: 6, label: "Optimizando imagen para OCR" });
+      }
+      if (preparedFile.size > OCR_MAX_UPLOAD_BYTES) {
+        throw new Error("La captura optimizada no puede superar 4 MB.");
       }
 
       const payload = await postBetImportWithProgress(preparedFile, setImportProgress);

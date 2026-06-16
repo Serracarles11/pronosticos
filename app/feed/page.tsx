@@ -674,14 +674,6 @@ export default async function FeedPage({
           <section className="feed__main">
             <header className="feed__header">
               <h1>Pronosticos</h1>
-              <p>
-                {items.length} pronosticos
-                {searchTerm
-                  ? ` encontrados para "${searchTerm}"`
-                  : activeDeporte !== "todos"
-                  ? ` de ${activeDeporte}`
-                  : " en la comunidad"}
-              </p>
             </header>
 
             <div className="feed__filters">
@@ -705,16 +697,15 @@ export default async function FeedPage({
                   >
                     Mas votadas
                   </Link>
+                  <FeedFilterDropdown
+                    activeCount={activeAdvancedFilterCount}
+                    options={filterOptions}
+                  />
                 </div>
                 <Link href="/nuevo" className="btn btn--primary">
                   + Publicar
                 </Link>
               </div>
-
-              <FeedFilterDropdown
-                activeCount={activeAdvancedFilterCount}
-                options={filterOptions}
-              />
             </div>
 
             <div className="feed__scroll">

@@ -7,6 +7,7 @@ import {
   fetchPronosticoBookmakers,
   type PronosticoBookmakerSupabase,
 } from "@/lib/pronostico-bookmakers";
+import { parsePronosticoSelections } from "@/lib/pronostico-selections";
 import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
@@ -20,6 +21,8 @@ type FeaturedPronostico = {
   bookmaker?: string | null;
   copy_link?: string | null;
   fecha_evento?: string | null;
+  competicion?: string | null;
+  created_at?: string | null;
   profiles: unknown;
 };
 
@@ -27,6 +30,25 @@ function avatarColor(username: string) {
   let h = 0;
   for (let i = 0; i < username.length; i++) h = username.charCodeAt(i) + ((h << 5) - h);
   return COLORS[Math.abs(h) % COLORS.length];
+}
+
+function timeAgo(dateStr?: string | null) {
+  if (!dateStr) return "";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return "Hace unos minutos";
+  if (h < 24) return `Hace ${h} h`;
+  return `Hace ${Math.floor(h / 24)} dias`;
+}
+
+function Confidence({ value }: { value: number }) {
+  return (
+    <div className="pred__confidence">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <span key={s} className={s <= value ? "is-on" : ""} />
+      ))}
+    </div>
+  );
 }
 
 export default async function HomePage() {
@@ -63,7 +85,7 @@ export default async function HomePage() {
     ? await Promise.all([
         supabase
           .from("pronosticos")
-          .select("id, evento, mercado, cuota, confianza, estado, copy_link, fecha_evento, profiles!pronosticos_user_id_fkey(username)")
+          .select("id, evento, mercado, cuota, confianza, estado, copy_link, fecha_evento, competicion, created_at, profiles!pronosticos_user_id_fkey(username)")
           .eq("visibilidad", "publico")
           .or(upcomingPronosticoFilter())
           .order("created_at", { ascending: false })
@@ -154,7 +176,7 @@ export default async function HomePage() {
             <h2>Destacadas hoy</h2>
             <Link href="/feed" className="section__link">Ver feed completo →</Link>
           </div>
-          <div className="grid grid--3">
+          <div className="home-featured-list">
             {(featured ?? []).length > 0
               ? (featured ?? []).map((p, i) => {
                   const id = String(p.id);
@@ -166,22 +188,36 @@ export default async function HomePage() {
                   const color = avatarColor(username);
                   const initials = username.slice(0, 2).toUpperCase();
                   const bookmakerAccent = getBookmakerAccentFromSources(p.bookmaker, p.copy_link);
+                  const selections = parsePronosticoSelections(String(p.mercado ?? ""));
+                  const isCombined = selections.length > 1;
+                  const visibleSelections = selections.slice(0, 4);
+                  const hiddenSelectionCount = Math.max(0, selections.length - visibleSelections.length);
                   return (
                     <article
                       key={id}
                       className={[
-                        "card pred",
-                        i === 1 ? "card--featured" : "",
+                        "card pred pred--clickable home-featured-card",
+                        i === 0 ? "card--featured" : "",
                         bookmakerAccent?.className ?? "",
                       ].filter(Boolean).join(" ")}
                     >
+                      <Link
+                        aria-label={`Ver apuesta: ${p.evento}`}
+                        className="pred__overlay-link"
+                        href={`/detalle?id=${id}`}
+                      />
                       <header className="pred__head">
                         <div className="pred__author">
-                          <Link href={`/u/${username}`} className={`avatar avatar--sm avatar--${color}`}>
+                          <Link href={`/u/${username}`} className={`avatar avatar--md avatar--${color}`}>
                             {initials}
                           </Link>
                           <div className="pred__author-meta">
-                            <span className="pred__user">{username}</span>
+                            <span className="pred__user">
+                              <Link href={`/u/${username}`}>{username}</Link>
+                            </span>
+                            <span className="pred__sub">
+                              {[timeAgo(p.created_at), p.competicion].filter(Boolean).join(" · ")}
+                            </span>
                           </div>
                         </div>
                         <div className="pred__head-actions">
@@ -202,15 +238,55 @@ export default async function HomePage() {
                           </span>
                         </div>
                       </header>
-                      <Link href={`/detalle?id=${id}`}>
-                        <h3 className="pred__title">{p.evento} · {p.mercado}</h3>
-                      </Link>
-                      <div className="cluster">
-                        <span className="badge">
-                          Cuota <span className="mono">{cuota.toFixed(2)}</span>
-                        </span>
-                        <span className="badge">Confianza {confianza}/5</span>
+                      <div>
+                        <h3 className="pred__title">
+                          <Link href={`/detalle?id=${id}`}>{p.evento}</Link>
+                        </h3>
                       </div>
+
+                      {isCombined && (
+                        <div className="combo-selections combo-selections--feed">
+                          {visibleSelections.map((selection, selectionIndex) => (
+                            <div className="combo-selection" key={`${selection.eventName}-${selection.pick}-${selectionIndex}`}>
+                              <span className="combo-selection__num">{selectionIndex + 1}</span>
+                              <div>
+                                {selection.eventName && <strong>{selection.eventName}</strong>}
+                                <span>{selection.pick}</span>
+                              </div>
+                            </div>
+                          ))}
+                          {hiddenSelectionCount > 0 && (
+                            <Link className="combo-selection combo-selection--more" href={`/detalle?id=${id}`}>
+                              Ver {hiddenSelectionCount} mas
+                            </Link>
+                          )}
+                        </div>
+                      )}
+
+                      <div className={`pred__strip ${isCombined ? "pred__strip--combo" : ""}`}>
+                        {!isCombined && (
+                          <div className="pred__cell">
+                            <div className="pred__cell-label">Pronostico</div>
+                            <div className="pred__cell-value">{p.mercado}</div>
+                          </div>
+                        )}
+                        <div className="pred__cell pred__cell--accent">
+                          <div className="pred__cell-label">Cuota</div>
+                          <div className="pred__cell-value mono">{cuota.toFixed(2)}</div>
+                        </div>
+                        <div className="pred__cell">
+                          <div className="pred__cell-label">Confianza</div>
+                          <Confidence value={confianza} />
+                        </div>
+                      </div>
+
+                      <footer className="pred__foot">
+                        <div className="pred__actions">
+                          <Link href={`/detalle?id=${id}`} className="muted">
+                            Ver →
+                          </Link>
+                        </div>
+                      </footer>
                     </article>
                   );
                 })
