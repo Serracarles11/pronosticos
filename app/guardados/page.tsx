@@ -3,6 +3,12 @@ import { redirect } from "next/navigation";
 import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { SaveButton } from "../components/save-button";
+import { getBookmakerAccentFromSources } from "@/lib/bookmaker-accent";
+import {
+  fetchPronosticoBookmakers,
+  type PronosticoBookmakerSupabase,
+} from "@/lib/pronostico-bookmakers";
+import { isUpcomingOrUndated } from "@/lib/upcoming-content";
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -31,19 +37,31 @@ export default async function GuardadosPage() {
     .select(`
       created_at,
       pronosticos (
-        id, evento, mercado, cuota, confianza, estado, competicion, deporte, created_at,
+        id, evento, mercado, cuota, confianza, estado, competicion, deporte, copy_link, fecha_evento, created_at,
         profiles!pronosticos_user_id_fkey ( username )
       )
     `)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const items = (guardados ?? [])
+  let items = (guardados ?? [])
     .flatMap((item) => {
       const pronosticos = item.pronosticos as unknown;
       if (!pronosticos) return [];
       return Array.isArray(pronosticos) ? pronosticos : [pronosticos];
-    }) as Array<Record<string, unknown>>;
+    })
+    .filter((item) => isUpcomingOrUndated((item as Record<string, unknown>).fecha_evento as string | null)) as Array<Record<string, unknown>>;
+
+  if (items.length > 0) {
+    const bookmakerById = await fetchPronosticoBookmakers(
+      supabase as unknown as PronosticoBookmakerSupabase,
+      items.map((item) => item.id as string)
+    );
+    items = items.map((item) => ({
+      ...item,
+      bookmaker: bookmakerById.get(item.id as string) ?? null,
+    }));
+  }
 
   return (
     <TodosGanamosShell active="guardados">
@@ -72,8 +90,15 @@ export default async function GuardadosPage() {
             {items.map((item) => {
               const profile = item.profiles as { username: string } | Array<{ username: string }> | null;
               const author = Array.isArray(profile) ? profile[0]?.username : profile?.username;
+              const bookmakerAccent = getBookmakerAccentFromSources(item.bookmaker, item.copy_link);
               return (
-                <article className="card pred saved-card" key={item.id as string}>
+                <article
+                  className={[
+                    "card pred saved-card",
+                    bookmakerAccent?.className ?? "",
+                  ].filter(Boolean).join(" ")}
+                  key={item.id as string}
+                >
                   <header className="pred__head">
                     <div>
                       <span className="pred__sub">
@@ -84,14 +109,19 @@ export default async function GuardadosPage() {
                         <Link href={`/detalle?id=${item.id as string}`}>{item.evento as string}</Link>
                       </h3>
                     </div>
-                    <span className={estadoClass(item.estado as string)}>
-                      <span className="pill__dot" />
-                      {item.estado === "acertada"
-                        ? "Acertada"
-                        : item.estado === "fallada"
-                        ? "Fallada"
-                        : "Pendiente"}
-                    </span>
+                    <div className="pred__head-actions">
+                      {bookmakerAccent && (
+                        <span className="pred__bookmaker">{bookmakerAccent.label}</span>
+                      )}
+                      <span className={estadoClass(item.estado as string)}>
+                        <span className="pill__dot" />
+                        {item.estado === "acertada"
+                          ? "Acertada"
+                          : item.estado === "fallada"
+                          ? "Fallada"
+                          : "Pendiente"}
+                      </span>
+                    </div>
                   </header>
                   <div className="pred__strip">
                     <div className="pred__cell">

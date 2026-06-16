@@ -2,6 +2,7 @@ import { createClient } from "../supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FootballMatchPickerItem } from "./types";
 import { footballTeamSearchTerms, localizeFootballMatch } from "./localize.ts";
+import { futureIsoFloor } from "../upcoming-content.ts";
 
 type SupabaseLike = SupabaseClient;
 
@@ -43,9 +44,10 @@ export async function getMatchesForPicker({
     .limit(Math.min(Math.max(limit, 1), 50));
 
   if (isUuid(id)) request = request.eq("id", id);
-  if (dateFrom) request = request.gte("kickoff_at", new Date(dateFrom).toISOString());
+  request = request.gte("kickoff_at", futureIsoFloor(dateFrom));
   if (dateTo) request = request.lte("kickoff_at", new Date(dateTo).toISOString());
   if (competitionCode) request = request.eq("competition_code", competitionCode.toUpperCase());
+  request = request.not("status", "in", "(finished,cancelled)");
 
   const term = cleanSearch(query);
   if (term) {

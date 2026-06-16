@@ -21,7 +21,7 @@
     "lint": "eslint",
     "test": "node --experimental-strip-types --test tests/*.test.mts",
     "sync:football": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/sync-football-matches.ts",
-    "check": "pnpm run test && pnpm run lint && pnpm run build"
+    "check": "corepack pnpm run test && corepack pnpm run lint && corepack pnpm run build"
   },
   "dependencies": {
     "@next/env": "16.2.6",
@@ -29,6 +29,7 @@
     "@supabase/supabase-js": "^2.106.0",
     "motion": "^12.40.0",
     "next": "16.2.6",
+    "openai": "^6.42.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-icons": "^5.6.0",

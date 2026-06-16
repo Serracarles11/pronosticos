@@ -9,6 +9,7 @@ import { ShareButton } from "@/app/components/share-button";
 import { SocialLinks } from "@/app/components/social-links";
 import { UserAvatar } from "@/app/components/user-avatar";
 import { parseProfileSocialLinks, type SocialLink } from "@/lib/social-links";
+import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 
 type Props = {
   params: Promise<{ username: string }>;
@@ -88,9 +89,10 @@ export default async function PublicUserPage({ params, searchParams }: Props) {
     user
       ? supabase
           .from("pronosticos")
-          .select("id, evento, mercado, cuota, estado, competicion, created_at, visibilidad")
+          .select("id, evento, mercado, cuota, estado, competicion, fecha_evento, created_at, visibilidad")
           .eq("user_id", profile.id)
           .neq("visibilidad", "borrador")
+          .or(upcomingPronosticoFilter())
           .order("created_at", { ascending: false })
           .limit(60)
       : Promise.resolve({ data: [] }),

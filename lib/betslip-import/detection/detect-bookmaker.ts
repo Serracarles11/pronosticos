@@ -10,6 +10,13 @@ const BOOKMAKER_HINTS: Array<{ id: BetslipBookmaker; labels: string[] }> = [
   { id: "sportium", labels: ["sportium"] },
   { id: "luckia", labels: ["luckia"] },
   { id: "bwin", labels: ["bwin"] },
+  { id: "betano", labels: ["betano"] },
+  { id: "retabet", labels: ["retabet", "reta"] },
+  { id: "marathonbet", labels: ["marathonbet", "marathon bet"] },
+  { id: "williamhill", labels: ["williamhill", "william hill"] },
+  { id: "888sport", labels: ["888sport", "888 sport"] },
+  { id: "kirolbet", labels: ["kirolbet"] },
+  { id: "paf", labels: ["paf"] },
 ];
 
 export function detectBookmaker(text: string) {

@@ -1,8 +1,28 @@
 import Link from "next/link";
 import { TodosGanamosShell } from "./components/todosganamos-shell";
+import { CommunityStatsCard } from "@/components/home/CommunityStatsCard";
 import { createClient } from "@/lib/supabase/server";
+import { getBookmakerAccentFromSources } from "@/lib/bookmaker-accent";
+import {
+  fetchPronosticoBookmakers,
+  type PronosticoBookmakerSupabase,
+} from "@/lib/pronostico-bookmakers";
+import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
+type FeaturedPronostico = {
+  id: string;
+  evento: string;
+  mercado: string;
+  cuota: number;
+  confianza: number;
+  estado: string;
+  bookmaker?: string | null;
+  copy_link?: string | null;
+  fecha_evento?: string | null;
+  profiles: unknown;
+};
+
 function avatarColor(username: string) {
   let h = 0;
   for (let i = 0; i < username.length; i++) h = username.charCodeAt(i) + ((h << 5) - h);
@@ -15,12 +35,37 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const [communityCountRes, latestUsersRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("is_shadowbanned", false),
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url, created_at")
+      .eq("is_shadowbanned", false)
+      .order("created_at", { ascending: false })
+      .limit(2),
+  ]);
+  const communitySummary = {
+    totalUsers: communityCountRes.count ?? 0,
+    latestUsers: (latestUsersRes.data ?? []).map((profile) => ({
+      id: String(profile.id),
+      username: String(profile.username ?? "usuario"),
+      displayName: profile.display_name ?? null,
+      avatarUrl: profile.avatar_url ?? null,
+      createdAt: String(profile.created_at),
+    })),
+    error: Boolean(communityCountRes.error || latestUsersRes.error),
+  };
+
   const [featuredRes, allPronsRes] = user
     ? await Promise.all([
         supabase
           .from("pronosticos")
-          .select("id, evento, mercado, cuota, confianza, estado, profiles!pronosticos_user_id_fkey(username)")
+          .select("id, evento, mercado, cuota, confianza, estado, copy_link, fecha_evento, profiles!pronosticos_user_id_fkey(username)")
           .eq("visibilidad", "publico")
+          .or(upcomingPronosticoFilter())
           .order("created_at", { ascending: false })
           .limit(3),
         supabase
@@ -31,7 +76,17 @@ export default async function HomePage() {
           .limit(500),
       ])
     : [{ data: [] }, { data: [] }];
-  const featured = featuredRes.data;
+  let featured = (featuredRes.data ?? []) as FeaturedPronostico[];
+  if (featured.length > 0) {
+    const bookmakerById = await fetchPronosticoBookmakers(
+      supabase as unknown as PronosticoBookmakerSupabase,
+      featured.map((item) => item.id as string)
+    );
+    featured = featured.map((item) => ({
+      ...item,
+      bookmaker: bookmakerById.get(item.id as string) ?? null,
+    }));
+  }
   const allProns = allPronsRes.data;
 
   type TipsterMap = { username: string; displayName: string; total: number; acertadas: number };
@@ -87,13 +142,8 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="hero__preview" aria-hidden="true">
-            <article className="card card--featured hero__card-front member-gate member-gate--hero">
-              <span className="member-gate__icon">+</span>
-              <span className="pill pill--blue">Acceso para miembros</span>
-              <h3>Los pronosticos se consultan con una cuenta TodosGanamos.</h3>
-              <p>Registrate gratis para ver picks, cuotas informativas, analisis y debate de la comunidad.</p>
-            </article>
+          <div className="hero__preview">
+            <CommunityStatsCard {...communitySummary} />
           </div>
         </div>
       </section>
@@ -107,12 +157,24 @@ export default async function HomePage() {
           <div className="grid grid--3">
             {(featured ?? []).length > 0
               ? (featured ?? []).map((p, i) => {
+                  const id = String(p.id);
+                  const estado = String(p.estado ?? "");
+                  const cuota = Number(p.cuota);
+                  const confianza = Number(p.confianza);
                   const username =
                     (p.profiles as unknown as { username: string } | null)?.username ?? "usuario";
                   const color = avatarColor(username);
                   const initials = username.slice(0, 2).toUpperCase();
+                  const bookmakerAccent = getBookmakerAccentFromSources(p.bookmaker, p.copy_link);
                   return (
-                    <article key={p.id} className={`card pred ${i === 1 ? "card--featured" : ""}`}>
+                    <article
+                      key={id}
+                      className={[
+                        "card pred",
+                        i === 1 ? "card--featured" : "",
+                        bookmakerAccent?.className ?? "",
+                      ].filter(Boolean).join(" ")}
+                    >
                       <header className="pred__head">
                         <div className="pred__author">
                           <Link href={`/u/${username}`} className={`avatar avatar--sm avatar--${color}`}>
@@ -122,27 +184,32 @@ export default async function HomePage() {
                             <span className="pred__user">{username}</span>
                           </div>
                         </div>
-                        <span
-                          className={
-                            p.estado === "acertada"
-                              ? "pill pill--ok"
-                              : p.estado === "fallada"
-                              ? "pill pill--bad"
-                              : "pill pill--warn"
-                          }
-                        >
-                          <span className="pill__dot" />
-                          {p.estado === "acertada" ? "Acertada" : p.estado === "fallada" ? "Fallada" : "Pendiente"}
-                        </span>
+                        <div className="pred__head-actions">
+                          {bookmakerAccent && (
+                            <span className="pred__bookmaker">{bookmakerAccent.label}</span>
+                          )}
+                          <span
+                            className={
+                              estado === "acertada"
+                                ? "pill pill--ok"
+                                : estado === "fallada"
+                                ? "pill pill--bad"
+                                : "pill pill--warn"
+                            }
+                          >
+                            <span className="pill__dot" />
+                            {estado === "acertada" ? "Acertada" : estado === "fallada" ? "Fallada" : "Pendiente"}
+                          </span>
+                        </div>
                       </header>
-                      <Link href={`/detalle?id=${p.id}`}>
+                      <Link href={`/detalle?id=${id}`}>
                         <h3 className="pred__title">{p.evento} · {p.mercado}</h3>
                       </Link>
                       <div className="cluster">
                         <span className="badge">
-                          Cuota <span className="mono">{Number(p.cuota).toFixed(2)}</span>
+                          Cuota <span className="mono">{cuota.toFixed(2)}</span>
                         </span>
-                        <span className="badge">Confianza {p.confianza}/5</span>
+                        <span className="badge">Confianza {confianza}/5</span>
                       </div>
                     </article>
                   );

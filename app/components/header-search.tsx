@@ -9,6 +9,7 @@ const HISTORY_KEY = "TodosGanamos-search-history";
 const MAX_HISTORY_ITEMS = 6;
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 const QUICK_CATEGORIES = [
+  { label: "Mundial", href: "/feed?categoria=mundial", description: "Pronosticos del Mundial" },
   { label: "Quiniela", href: "/feed?categoria=quiniela", description: "Pronosticos de quiniela" },
   { label: "Cuota alta", href: "/feed?categoria=cuota-alta", description: "Cuotas desde 3.00" },
 ] as const;

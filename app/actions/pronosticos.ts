@@ -95,6 +95,7 @@ export async function createPronostico(formData: FormData) {
   if (picksJson) {
     type PickItem = {
       mercado: string;
+      seleccion?: string;
       cuota: string;
       eventName?: string;
       competition?: string;
@@ -108,7 +109,8 @@ export async function createPronostico(formData: FormData) {
     }
     const cleanPicks = picks.map((pick) => ({
       mercado: String(pick.mercado ?? "").trim(),
-      cuota: String(pick.cuota ?? "").trim(),
+      seleccion: String(pick.seleccion ?? "").trim(),
+      cuota: String(pick.cuota ?? "").trim().replace(",", "."),
       eventName: String(pick.eventName ?? "").trim(),
       competition: String(pick.competition ?? "").trim(),
       kickoffAt: String(pick.kickoffAt ?? "").trim(),
@@ -125,7 +127,7 @@ export async function createPronostico(formData: FormData) {
 
     if (picks.length === 1) {
       const pick = cleanPicks[0];
-      mercado = pick.mercado;
+      mercado = [pick.mercado, pick.seleccion].filter(Boolean).join(": ");
       cuota = parseFloat(pick.cuota);
       if (pick.eventName) evento = pick.eventName;
       if (pick.competition) competicion = pick.competition;
@@ -134,7 +136,7 @@ export async function createPronostico(formData: FormData) {
       if (pick.footballMatchExternalId) footballMatchExternalId = pick.footballMatchExternalId;
     } else {
       mercado = cleanPicks
-        .map((pick) => [pick.eventName, pick.mercado].filter(Boolean).join(": "))
+        .map((pick) => [pick.eventName, [pick.mercado, pick.seleccion].filter(Boolean).join(": ")].filter(Boolean).join(": "))
         .join(" + ");
       cuota = cleanPicks.reduce((acc, pick) => acc * parseFloat(pick.cuota), 1);
       cuota = Math.round(cuota * 100) / 100;

@@ -30,6 +30,15 @@ export function getDefaultFootballSyncRange(now = new Date()) {
   };
 }
 
+export function shouldSyncFullSeasonCompetition(
+  competition: FootballDataCompetitionCode,
+  fullSeasonCompetitions: FootballDataCompetitionCode[] = ["WC"]
+) {
+  return fullSeasonCompetitions
+    .map((item) => item.toUpperCase())
+    .includes(competition.toUpperCase());
+}
+
 async function insertSyncLog(supabase: SupabaseLike, stats: FootballSyncStats, startedAt: string) {
   await supabase.from("football_data_sync_logs").insert({
     status: stats.status,
@@ -64,7 +73,17 @@ export async function syncFootballMatches({
   if (targetCompetitions.length > 0) {
     for (const competition of targetCompetitions) {
       try {
-        rawMatches.push(...(await fetchMatchesByCompetition(competition, dateFrom, dateTo)));
+        const fullSeason = shouldSyncFullSeasonCompetition(
+          competition,
+          config.fullSeasonCompetitions
+        );
+        rawMatches.push(
+          ...(await fetchMatchesByCompetition(
+            competition,
+            fullSeason ? undefined : dateFrom,
+            fullSeason ? undefined : dateTo
+          ))
+        );
       } catch (error) {
         const message =
           error instanceof FootballDataApiError

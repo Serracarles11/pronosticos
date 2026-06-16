@@ -64,6 +64,10 @@ export type ParsedBetSlip = {
   currency?: string | null;
   confidence?: number;
   rawText?: string;
+  extractionProvider?: "openai" | "tesseract" | "manual";
+  extractionModel?: string | null;
+  extractionConfidence?: number;
+  rawProviderJson?: unknown;
   debug?: {
     parser: string;
     bookmakerHints: string[];

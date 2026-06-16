@@ -16,6 +16,12 @@ import {
   localizeFootballTeamName,
 } from "@/lib/football-data/localize";
 import { parsePronosticoSelections } from "@/lib/pronostico-selections";
+import { getBookmakerAccentFromSources } from "@/lib/bookmaker-accent";
+import {
+  fetchPronosticoBookmakers,
+  type PronosticoBookmakerSupabase,
+} from "@/lib/pronostico-bookmakers";
+import { futureIsoFloor, upcomingPronosticoFilter } from "@/lib/upcoming-content";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -61,6 +67,7 @@ const DEPORTES = ["Futbol", "Tenis", "NBA", "eSports", "Combinadas", "Otros"];
 const CATEGORIAS = [
   ["quiniela", "Quiniela"],
   ["cuota-alta", "Cuota alta"],
+  ["mundial", "Mundial"],
 ] as const;
 const FEED_PAGE_SIZE = 20;
 const VOTED_SORT_CANDIDATE_LIMIT = 100;
@@ -263,9 +270,9 @@ export default async function FeedPage({
 
   if (activePeriodo === "semana") {
     const week = currentMadridWeekRange();
-    query = query.gte("fecha_evento", week.start).lt("fecha_evento", week.end);
+    query = query.gte("fecha_evento", futureIsoFloor(week.start)).lt("fecha_evento", week.end);
   } else {
-    query = query.or(`fecha_evento.is.null,fecha_evento.gte.${new Date().toISOString()}`);
+    query = query.or(upcomingPronosticoFilter());
   }
 
   type SearchProfile = {
@@ -326,6 +333,10 @@ export default async function FeedPage({
     );
   } else if (activeCategoria === "cuota-alta") {
     query = query.gte("cuota", 3);
+  } else if (activeCategoria === "mundial") {
+    query = query.or(
+      "evento.ilike.%mundial%,mercado.ilike.%mundial%,competicion.ilike.%mundial%,competicion.ilike.%world cup%,explicacion.ilike.%mundial%"
+    );
   }
 
   query = query
@@ -404,6 +415,17 @@ export default async function FeedPage({
   }
 
   items = items.slice(0, FEED_PAGE_SIZE);
+
+  if (items.length > 0) {
+    const bookmakerById = await fetchPronosticoBookmakers(
+      supabase as unknown as PronosticoBookmakerSupabase,
+      items.map((item) => item.id)
+    );
+    items = items.map((item) => ({
+      ...item,
+      bookmaker: bookmakerById.get(item.id) ?? null,
+    }));
+  }
 
   // Get which ones the current user has liked
   const userLikedIds = new Set<string>();
@@ -766,11 +788,16 @@ export default async function FeedPage({
                   typeof item.copy_link === "string" && item.copy_link.startsWith("https://")
                     ? item.copy_link
                     : null;
+                const bookmakerAccent = getBookmakerAccentFromSources(item.bookmaker, copyLink);
 
                 return (
                   <article
                     key={item.id as string}
-                    className={`card pred pred--clickable ${i === 0 ? "card--featured" : ""}`}
+                    className={[
+                      "card pred pred--clickable",
+                      i === 0 ? "card--featured" : "",
+                      bookmakerAccent?.className ?? "",
+                    ].filter(Boolean).join(" ")}
                   >
                     <Link
                       aria-label={`Ver apuesta: ${item.evento as string}`}
@@ -796,6 +823,9 @@ export default async function FeedPage({
                         </div>
                       </div>
                       <div className="pred__head-actions">
+                        {bookmakerAccent && (
+                          <span className="pred__bookmaker">{bookmakerAccent.label}</span>
+                        )}
                         <EstadoPill estado={item.estado as string} />
                         {item.moderation_status === "pending_review" && user?.id === userId && (
                           <span className="badge badge--warn">Pendiente de revision</span>

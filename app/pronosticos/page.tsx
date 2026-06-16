@@ -4,6 +4,12 @@ import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 import { isMissingOptionalSchema } from "@/lib/anti-spam/server";
+import { getBookmakerAccentFromSources } from "@/lib/bookmaker-accent";
+import {
+  fetchPronosticoBookmakers,
+  type PronosticoBookmakerSupabase,
+} from "@/lib/pronostico-bookmakers";
+import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 
 export const metadata: Metadata = {
   title: "Pronósticos deportivos gratis de fútbol hoy | TodosGanamos",
@@ -54,6 +60,9 @@ type PublicPronostico = {
   confianza: number;
   estado: string;
   competicion: string | null;
+  bookmaker: string | null;
+  copy_link: string | null;
+  fecha_evento: string | null;
   created_at: string;
   profiles: unknown;
   moderation_status?: "approved" | "pending_review" | "rejected" | "hidden" | null;
@@ -87,10 +96,11 @@ export default async function PronosticosPage() {
   const { data } = await supabase
     .from("pronosticos")
     .select(`
-      id, user_id, evento, mercado, cuota, confianza, estado, competicion, created_at,
+      id, user_id, evento, mercado, cuota, confianza, estado, competicion, copy_link, fecha_evento, created_at,
       profiles!pronosticos_user_id_fkey(username, display_name, is_shadowbanned)
     `)
     .eq("visibilidad", "publico")
+    .or(upcomingPronosticoFilter())
     .order("created_at", { ascending: false })
     .limit(12);
 
@@ -125,6 +135,17 @@ export default async function PronosticosPage() {
       new Set(),
       false
     );
+  }
+
+  if (pronosticos.length > 0) {
+    const bookmakerById = await fetchPronosticoBookmakers(
+      supabase as unknown as PronosticoBookmakerSupabase,
+      pronosticos.map((item) => item.id)
+    );
+    pronosticos = pronosticos.map((item) => ({
+      ...item,
+      bookmaker: bookmakerById.get(item.id) ?? null,
+    }));
   }
 
   const jsonLd = {
@@ -218,9 +239,19 @@ export default async function PronosticosPage() {
                   const username = profile?.username ?? "usuario";
                   const initials = username.slice(0, 2).toUpperCase();
                   const color = avatarColor(username);
+                  const bookmakerAccent = getBookmakerAccentFromSources(
+                    pronostico.bookmaker,
+                    pronostico.copy_link
+                  );
 
                   return (
-                    <article className="card pred" key={pronostico.id}>
+                    <article
+                      className={[
+                        "card pred",
+                        bookmakerAccent?.className ?? "",
+                      ].filter(Boolean).join(" ")}
+                      key={pronostico.id}
+                    >
                       <header className="pred__head">
                         <div className="pred__author">
                           <span className={`avatar avatar--sm avatar--${color}`}>
@@ -235,10 +266,15 @@ export default async function PronosticosPage() {
                           </div>
                         </div>
 
-                        <span className={estadoClassName(pronostico.estado)}>
-                          <span className="pill__dot" />
-                          {estadoLabel(pronostico.estado)}
-                        </span>
+                        <div className="pred__head-actions">
+                          {bookmakerAccent && (
+                            <span className="pred__bookmaker">{bookmakerAccent.label}</span>
+                          )}
+                          <span className={estadoClassName(pronostico.estado)}>
+                            <span className="pill__dot" />
+                            {estadoLabel(pronostico.estado)}
+                          </span>
+                        </div>
                       </header>
 
                       <h3 className="pred__title">{pronostico.evento}</h3>

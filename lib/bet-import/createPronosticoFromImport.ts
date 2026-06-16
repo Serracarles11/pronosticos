@@ -140,7 +140,7 @@ export async function createCombinedPickFromImport(
       bookmaker: payload.bookmaker && payload.bookmaker !== "unknown" ? payload.bookmaker.slice(0, 40) : null,
       stake_simulado: stakeSimulado,
       cuota_tomada_at: new Date().toISOString(),
-      categorias: normalizePickCategories(["combinada", "importada"].join(",")),
+      categorias: normalizePickCategories(["mundial", "combinada", "importada"].join(",")),
       event_key: eventKey || null,
       moderation_status: spamReview.moderationStatus,
   };
@@ -170,7 +170,7 @@ export async function createCombinedPickFromImport(
         explicacion,
         fecha_evento: payload.kickoffAt,
         visibilidad,
-        categorias: normalizePickCategories(["combinada", "importada"].join(",")),
+        categorias: normalizePickCategories(["mundial", "combinada", "importada"].join(",")),
         event_key: eventKey || null,
         moderation_status: spamReview.moderationStatus,
       };

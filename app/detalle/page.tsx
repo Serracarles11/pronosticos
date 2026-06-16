@@ -16,8 +16,10 @@ import { EditPronosticoLinkButton } from "../components/edit-pronostico-link-but
 import { BackButton } from "../components/back-button";
 import { formatPickCategory } from "@/lib/pronostico-meta";
 import { parsePronosticoSelections } from "@/lib/pronostico-selections";
+import { getBookmakerAccentFromSources } from "@/lib/bookmaker-accent";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
+import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 
@@ -129,10 +131,11 @@ export default async function DetallePage({
         .order("created_at", { ascending: true }),
       supabase
         .from("pronosticos")
-        .select("id, evento, cuota, visibilidad")
+        .select("id, evento, cuota, visibilidad, fecha_evento")
         .eq("user_id", p.user_id)
         .neq("id", id)
         .neq("visibilidad", "borrador")
+        .or(upcomingPronosticoFilter())
         .order("created_at", { ascending: false })
         .limit(4),
     ]);
@@ -194,6 +197,7 @@ export default async function DetallePage({
   const copyLink = getCopyLink(p.copy_link);
   const selections = parsePronosticoSelections(String(p.mercado ?? ""));
   const isCombined = selections.length > 1;
+  const bookmakerAccent = getBookmakerAccentFromSources(p.bookmaker, copyLink);
 
   return (
     <TodosGanamosShell active="feed">
@@ -217,7 +221,12 @@ export default async function DetallePage({
               )}
             </nav>
 
-            <article className="card detail__pred pred">
+            <article
+              className={[
+                "card detail__pred pred",
+                bookmakerAccent?.className ?? "",
+              ].filter(Boolean).join(" ")}
+            >
               {error && (
                 <div className="auth-error">
                   <span className="auth-error__icon">!</span>
@@ -244,6 +253,9 @@ export default async function DetallePage({
                   </div>
                 </div>
                 <div className="pred__head-actions">
+                  {bookmakerAccent && (
+                    <span className="pred__bookmaker">{bookmakerAccent.label}</span>
+                  )}
                   <EstadoPill estado={p.estado} />
                   {p.moderation_status === "pending_review" && isOwner && (
                     <span className="badge badge--warn">Pendiente de revision</span>

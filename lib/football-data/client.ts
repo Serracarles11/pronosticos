@@ -3,12 +3,14 @@ import type { FootballDataCompetitionCode, FootballDataRawMatch } from "./types"
 
 const DEFAULT_BASE_URL = "https://api.football-data.org/v4";
 const DEFAULT_COMPETITIONS = ["PL", "PD", "SA", "BL1", "FL1", "CL", "WC"];
+const DEFAULT_FULL_SEASON_COMPETITIONS = ["WC"];
 
 export type FootballDataConfig = {
   apiKey: string;
   baseUrl: string;
   syncDaysAhead: number;
   competitions: FootballDataCompetitionCode[];
+  fullSeasonCompetitions: FootballDataCompetitionCode[];
 };
 
 export class FootballDataApiError extends Error {
@@ -37,6 +39,9 @@ export function getFootballDataConfig(): FootballDataConfig {
     baseUrl: (process.env.FOOTBALL_DATA_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, ""),
     syncDaysAhead: Math.max(1, Number(process.env.FOOTBALL_DATA_SYNC_DAYS_AHEAD ?? 14) || 14),
     competitions: parseCompetitionList(process.env.FOOTBALL_DATA_COMPETITIONS),
+    fullSeasonCompetitions: parseCompetitionList(
+      process.env.FOOTBALL_DATA_FULL_SEASON_COMPETITIONS ?? DEFAULT_FULL_SEASON_COMPETITIONS.join(",")
+    ),
   };
 }
 
@@ -91,8 +96,8 @@ async function fetchFootballData(path: string, params: Record<string, string | u
 
 export async function fetchMatchesByCompetition(
   competitionCode: FootballDataCompetitionCode,
-  dateFrom: string,
-  dateTo: string
+  dateFrom?: string,
+  dateTo?: string
 ): Promise<FootballDataRawMatch[]> {
   const data = await fetchFootballData(`/competitions/${encodeURIComponent(competitionCode)}/matches`, {
     dateFrom,

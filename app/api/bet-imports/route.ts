@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { parseBetSlipText } from "@/lib/betslip-import/parse-betslip";
-import { runOcrOnBetSlip } from "@/lib/bet-import/ocr";
 import { uploadBetSlipImage } from "@/lib/bet-import/upload";
 import { validateBetSlipImage } from "@/lib/bet-import/validators";
-import { preprocessBetslipImage } from "@/lib/betslip-import/image/preprocess-betslip-image";
+import { isMissingOptionalSchema } from "@/lib/anti-spam/server";
+import { extractBetslipFromImage } from "@/lib/betslip-import/services/extract-betslip-from-image";
+import { createReviewPayload } from "@/lib/betslip-import/services/create-review-payload";
 
 export const runtime = "nodejs";
 
-const IMPORTS_PER_HOUR = 10;
+function importsPerHour() {
+  const value = Number(process.env.BETSLIP_IMPORT_MAX_PER_HOUR);
+  return Number.isFinite(value) && value > 0 ? value : 10;
+}
 
 function userFacingImportError(error: unknown) {
   const message = error instanceof Error ? error.message : "No se pudo procesar la captura.";
@@ -46,8 +49,9 @@ async function checkImportRateLimit(supabase: Awaited<ReturnType<typeof createCl
     .gte("created_at", since);
 
   if (error) return { allowed: false, error: error.message };
-  if ((count ?? 0) >= IMPORTS_PER_HOUR) {
-    return { allowed: false, error: "Has alcanzado el limite de 10 importaciones por hora." };
+  const limit = importsPerHour();
+  if ((count ?? 0) >= limit) {
+    return { allowed: false, error: `Has alcanzado el limite de ${limit} importaciones por hora.` };
   }
 
   return { allowed: true };
@@ -111,9 +115,12 @@ export async function POST(request: Request) {
       .eq("id", betImport.id)
       .eq("user_id", user.id);
 
-    const preparedImage = await preprocessBetslipImage(buffer);
-    const ocr = await runOcrOnBetSlip(preparedImage.buffer);
-    const parsed = parseBetSlipText(ocr.text);
+    const extraction = await extractBetslipFromImage({
+      imageBuffer: buffer,
+      mimeType: file.type.toLowerCase(),
+      userId: user.id,
+    });
+    const parsed = createReviewPayload(extraction);
 
     if (parsed.selections.length > 0) {
       const { error: selectionError } = await supabase.from("imported_bet_selections").insert(
@@ -133,23 +140,45 @@ export async function POST(request: Request) {
       if (selectionError) throw new Error(selectionError.message);
     }
 
+    const updateWithAiMetadata = {
+      bookmaker: parsed.bookmaker === "unknown" ? null : parsed.bookmaker,
+      extracted_text: parsed.rawText ?? "",
+      parsed_json: parsed,
+      extraction_provider: extraction.provider,
+      extraction_model: extraction.model ?? null,
+      extraction_confidence: extraction.confidence,
+      raw_provider_json: extraction.rawProviderJson ?? null,
+      validated_json: extraction,
+      status: "processed",
+      error_message: null,
+    };
+
     const { error: updateError } = await supabase
       .from("bet_imports")
-      .update({
-        bookmaker: parsed.bookmaker === "unknown" ? null : parsed.bookmaker,
-        extracted_text: ocr.text,
-        parsed_json: { ...parsed, ocrProvider: ocr.provider, imagePreprocess: preparedImage.steps },
-        status: "processed",
-        error_message: null,
-      })
+      .update(updateWithAiMetadata)
       .eq("id", betImport.id)
       .eq("user_id", user.id);
 
-    if (updateError) throw new Error(updateError.message);
+    if (isMissingOptionalSchema(updateError)) {
+      const { error: retryUpdateError } = await supabase
+        .from("bet_imports")
+        .update({
+          bookmaker: parsed.bookmaker === "unknown" ? null : parsed.bookmaker,
+          extracted_text: parsed.rawText ?? "",
+          parsed_json: parsed,
+          status: "processed",
+          error_message: null,
+        })
+        .eq("id", betImport.id)
+        .eq("user_id", user.id);
+      if (retryUpdateError) throw new Error(retryUpdateError.message);
+    } else if (updateError) {
+      throw new Error(updateError.message);
+    }
 
     return NextResponse.json({
       importId: betImport.id,
-      extractedText: ocr.text,
+      extractedText: parsed.rawText ?? "",
       parsed,
     });
   } catch (error) {

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { FollowButton } from "../components/follow-button";
+import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 function avatarColor(username: string) {
@@ -106,7 +107,8 @@ export default async function PerfilPage({
   let pronosticosQuery = supabase
     .from("pronosticos")
     .select("id, evento, mercado, cuota, estado, competicion, created_at, visibilidad, fecha_evento")
-    .eq("user_id", profileData.id);
+    .eq("user_id", profileData.id)
+    .or(upcomingPronosticoFilter());
 
   if (!isOwnProfile) {
     pronosticosQuery = pronosticosQuery.neq("visibilidad", "borrador");

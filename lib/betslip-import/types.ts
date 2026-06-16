@@ -10,6 +10,13 @@ export type BetslipBookmaker =
   | "sportium"
   | "luckia"
   | "bwin"
+  | "betano"
+  | "retabet"
+  | "marathonbet"
+  | "williamhill"
+  | "888sport"
+  | "kirolbet"
+  | "paf"
   | "unknown";
 
 export type FieldConfidence = {

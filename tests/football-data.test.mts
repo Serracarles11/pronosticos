@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { dedupeFootballMatches, mapFootballDataStatus, normalizeFootballDataMatch } from "../lib/football-data/mapper.ts";
 import { footballTeamSearchTerms, localizeFootballTeamName } from "../lib/football-data/localize.ts";
+import { shouldSyncFullSeasonCompetition } from "../lib/football-data/sync.ts";
 import { upsertFootballMatch } from "../lib/football-data/upsert.ts";
 
 const rawMatch = {
@@ -52,6 +53,12 @@ test("localizes football-data team names for Spanish UI", () => {
 test("dedupes matches by external id before upsert", () => {
   const match = normalizeFootballDataMatch(rawMatch);
   assert.equal(dedupeFootballMatches([match, { ...match, status: "scheduled" }]).length, 1);
+});
+
+test("syncs World Cup as a full active-season competition", () => {
+  assert.equal(shouldSyncFullSeasonCompetition("WC"), true);
+  assert.equal(shouldSyncFullSeasonCompetition("PD"), false);
+  assert.equal(shouldSyncFullSeasonCompetition("CL", ["WC", "CL"]), true);
 });
 
 test("upsert marks duplicate football matches as updated", async () => {

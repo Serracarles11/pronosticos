@@ -31,6 +31,7 @@ const CATEGORY_PRESETS = [
   ["laliga", "LaLiga"],
   ["champions", "Champions"],
   ["value-bet", "Value bet"],
+  ["mundial", "Mundial"],
 ] as const;
 
 const WORLD_CUP_COMPETITION_CODE = "WC";
@@ -251,10 +252,10 @@ export default function NuevoPage() {
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importReview, setImportReview] = useState<BetImportReviewPayload | null>(null);
-  const [categorias, setCategorias] = useState("");
+  const [categorias, setCategorias] = useState("mundial");
   const [copyLink, setCopyLink] = useState("");
   const [deporte, setDeporte] = useState("Futbol");
-  const [competicion, setCompeticion] = useState("LaLiga");
+  const [competicion, setCompeticion] = useState("Mundial");
   const [evento, setEvento] = useState("");
   const [fechaEvento, setFechaEvento] = useState("");
   const [matchPickerPickIndex, setMatchPickerPickIndex] = useState<number | null>(null);
@@ -266,7 +267,7 @@ export default function NuevoPage() {
   const [preview, setPreview] = useState({
     evento: "Real Sociedad - Villarreal",
     explicacion: "La Real lleva 6 partidos seguidos con BTTS en casa...",
-    competicion: "LaLiga",
+    competicion: "Mundial",
   });
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -1175,10 +1176,10 @@ export default function NuevoPage() {
                       setPreview((p) => ({ ...p, competicion: e.target.value }));
                     }}
                   >
+                    <option>Mundial</option>
                     <option>LaLiga</option>
                     <option>Premier League</option>
                     <option>Champions League</option>
-                    <option>Mundial</option>
                     <option>Liga Hypermotion</option>
                     <option>Roland Garros</option>
                     <option>NBA Playoffs</option>
@@ -1506,7 +1507,7 @@ export default function NuevoPage() {
                   id="categorias"
                   name="categorias"
                   onChange={(event) => setCategorias(event.target.value)}
-                  placeholder="quiniela, cuota-alta, laliga"
+                  placeholder="mundial, quiniela, cuota-alta"
                   value={categorias}
                 />
                 <div className="publish-category-presets">

@@ -41,6 +41,12 @@ FOOTBALL_DATA_API_KEY=tu-key-football-data
 FOOTBALL_DATA_BASE_URL=https://api.football-data.org/v4
 FOOTBALL_DATA_SYNC_DAYS_AHEAD=14
 FOOTBALL_DATA_COMPETITIONS=PL,PD,SA,BL1,FL1,CL,WC
+OPENAI_API_KEY=solo-en-servidor
+BETSLIP_EXTRACTOR_PROVIDER=openai
+BETSLIP_VISION_MODEL=gpt-5-mini
+ENABLE_TESSERACT_FALLBACK=true
+BETSLIP_IMPORT_MAX_PER_HOUR=10
+BETSLIP_IMPORT_MAX_FILE_MB=5
 ```
 
 Antes de publicar:
@@ -70,7 +76,7 @@ npx vercel --prod
 - Autocompletado de usuarios con historial local y accesos rapidos.
 - Pronosticos publicos, para seguidores y borradores privados.
 - Bookmaker de referencia, cuota tomada y stake simulado.
-- Importacion de apuestas/combinadas desde captura con OCR y revision manual.
+- Importacion de apuestas/combinadas desde captura con IA de vision, fallback OCR y revision manual.
 - Link externo opcional para copiar la apuesta y categorias normalizadas por pick.
 - Likes, comentarios, guardados y capturas de cierre.
 - Seguimiento de perfiles publicos y solicitudes para cuentas privadas.
@@ -142,6 +148,7 @@ FOOTBALL_DATA_API_KEY=...
 FOOTBALL_DATA_BASE_URL=https://api.football-data.org/v4
 FOOTBALL_DATA_SYNC_DAYS_AHEAD=14
 FOOTBALL_DATA_COMPETITIONS=PL,PD,SA,BL1,FL1,CL,WC
+FOOTBALL_DATA_FULL_SEASON_COMPETITIONS=WC
 SUPABASE_SERVICE_ROLE_KEY=...
 CRON_SECRET=...
 ```
@@ -155,6 +162,8 @@ Competiciones iniciales:
 - `FL1`: Ligue 1
 - `CL`: Champions League
 - `WC`: Mundial
+
+`FOOTBALL_DATA_SYNC_DAYS_AHEAD` limita las ligas a una ventana de proximos partidos. Las competiciones en `FOOTBALL_DATA_FULL_SEASON_COMPETITIONS` se sincronizan sin rango de fechas; por defecto `WC` trae todos los partidos del Mundial que football-data.org tenga disponibles para la temporada activa.
 
 Ejecuta la sincronizacion local:
 
@@ -189,15 +198,36 @@ Flujo:
 2. El navegador optimiza la imagen antes de subirla: lado ancho maximo 1280 px, alto maximo 2200 px, escala sin ampliar imagenes pequenas, escala de grises, contraste alto y salida JPEG optimizada.
 3. El backend valida autenticacion, tipo, tamano y limite de 10 imports por hora.
 4. La imagen se guarda en el bucket privado `bet-imports`.
-5. El endpoint `/api/bet-imports` ejecuta OCR con Tesseract.js en servidor.
-6. El parser intenta detectar bookmaker, selecciones, cuotas, cuota total, stake simulado, evento y fecha.
-7. La pantalla de revision muestra el texto OCR original y campos editables.
-8. Solo al pulsar "Publicar combinada" se crea el pronostico.
+5. El endpoint `/api/bet-imports` intenta extraer la apuesta con OpenAI Vision si `BETSLIP_EXTRACTOR_PROVIDER=openai` y existe `OPENAI_API_KEY`.
+6. Si OpenAI no esta configurado, falla por red, rate limit o devuelve JSON invalido, se usa Tesseract/OCR basico si `ENABLE_TESSERACT_FALLBACK=true`.
+7. El resultado se valida en servidor: selecciones, cuota total calculada, cuota total detectada, stake, ganancia potencial, booster, bookmaker y warnings.
+8. La pantalla de revision muestra metodo usado, modelo, confianza, bookmaker, tipo, stake, cuota detectada/calculada, ganancia potencial, booster, warnings y campos editables.
+9. Solo al pulsar "Publicar combinada" se crea el pronostico.
 
-Limitaciones del OCR:
+Configuracion OpenAI Vision:
+
+1. Crea una API key en `https://platform.openai.com/api-keys`.
+2. Configura `OPENAI_API_KEY` solo en `.env.local` o variables de entorno de backend/Vercel. Nunca uses prefijo `NEXT_PUBLIC_`.
+3. Activa el proveedor:
+
+```bash
+BETSLIP_EXTRACTOR_PROVIDER=openai
+BETSLIP_VISION_MODEL=gpt-5-mini
+ENABLE_TESSERACT_FALLBACK=true
+```
+
+Costes y limites:
+
+- Cada captura enviada a OpenAI consume tokens de entrada de imagen y salida JSON. El coste depende del modelo configurado y del tamano/resolucion de la captura.
+- La app limita imports por usuario con `BETSLIP_IMPORT_MAX_PER_HOUR=10`.
+- El tamano maximo por defecto es `BETSLIP_IMPORT_MAX_FILE_MB=5`.
+- La IA puede fallar o interpretar mal una captura. La revision manual sigue siendo obligatoria.
+
+Limitaciones:
 
 - El OCR puede confundir caracteres, cuotas, nombres de equipos o fechas.
-- Las selecciones detectadas son una ayuda inicial, no una fuente definitiva.
+- La IA puede confundir bloques visuales, cuotas o condiciones si la captura es borrosa, recortada o parcial.
+- Las selecciones detectadas son una ayuda inicial, no una fuente definitiva ni verificada.
 - El usuario debe revisar y corregir todos los campos antes de publicar.
 - Ganancias potenciales o retornos no se usan como cuota.
 
@@ -207,17 +237,21 @@ Privacidad:
 - No se generan URLs publicas para esas imagenes.
 - La tabla `bet_imports` y sus selecciones tienen RLS: cada usuario ve solo sus imports; admin puede revisar si existe `profiles.role = 'admin'`.
 
-Arquitectura OCR:
+Arquitectura de extraccion:
 
-- `lib/bet-import/ocr.ts` define la interfaz `OcrProvider`.
-- La primera implementacion es `TesseractOcrProvider`.
+- `lib/betslip-import/providers/provider.ts` define la interfaz `BetslipExtractorProvider`.
+- `lib/betslip-import/providers/openai-vision-provider.ts` usa OpenAI Responses API con imagen y JSON estructurado.
+- `lib/betslip-import/providers/tesseract-provider.ts` reutiliza Tesseract.js y el parser actual como fallback.
+- `lib/betslip-import/services/extract-betslip-from-image.ts` selecciona provider y fallback.
+- `lib/betslip-import/services/create-review-payload.ts` adapta el resultado al formulario de revision existente.
 - Por defecto usa `BET_IMPORT_OCR_LANGS=spa` para ir mas rapido. Si necesitas mas precision en capturas inglesas, configura `BET_IMPORT_OCR_LANGS=spa+eng`.
-- `CloudOcrProvider` queda como placeholder para migrar despues a Google Vision, AWS Textract o Azure OCR sin rehacer la UI.
+- La arquitectura queda preparada para anadir Google Vision mas adelante como provider OCR, sin convertirlo en proveedor principal.
 
 Aplica la migracion:
 
 ```bash
 supabase/17_import_betslip_ocr.sql
+supabase/20_betslip_ai_extractor.sql
 ```
 
 ## Compartir
@@ -267,6 +301,8 @@ El panel `/admin` incluye la seccion "Anti-spam" para revisar eventos, aprobar/r
 - `14_pronostico_copy_categories.sql`: link HTTPS de copia y categorias indexadas para pronosticos.
 - `15_anti_spam.sql`: limites anti-spam, palabras bloqueadas, mutes, shadowban y cola de moderacion.
 - `16_football_data_matches.sql`: partidos football-data.org, logs de sync y relacion con pronosticos.
+- `17_import_betslip_ocr.sql`: imports OCR de capturas, selecciones importadas y bucket privado `bet-imports`.
+- `20_betslip_ai_extractor.sql`: metadatos de extraccion IA/OCR, JSON bruto y JSON validado.
 - `16_social_links_profile_fallback.sql`: fallback JSON para redes si la tabla social no esta aplicada.
 - `17_social_links_only_core.sql`: limita redes sociales a TikTok, Instagram y X.
 - `17_import_betslip_ocr.sql`: imports OCR de capturas, selecciones importadas y bucket privado `bet-imports`.

@@ -6,6 +6,7 @@ export function AgeGate() {
   const [status, setStatus] = useState<"pending" | "blocked" | "accepted">("pending");
 
   function accept() {
+    window.dispatchEvent(new Event("todosganamos:age-accepted"));
     setStatus("accepted");
   }
 
