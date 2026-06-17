@@ -67,7 +67,10 @@ test("normalizes future knockout matches with unknown teams", () => {
 
 test("localizes football-data team names for Spanish UI", () => {
   assert.equal(localizeFootballTeamName("Spain"), "Espana");
+  assert.equal(localizeFootballTeamName("Algeria"), "Argelia");
   assert.equal(localizeFootballTeamName("Cape Verde Islands"), "Cabo Verde");
+  assert.equal(localizeFootballTeamName("Ivory Coast"), "Costa de Marfil");
+  assert.equal(localizeFootballTeamName("Jordan"), "Jordania");
   assert.equal(localizeFootballTeamName("Korea Republic"), "Corea del Sur");
   assert.equal(footballTeamSearchTerms("Espana").includes("spain"), true);
 });

@@ -20,6 +20,7 @@ import {
   parsePronosticoSelections,
 } from "@/lib/pronostico-selections";
 import { getBookmakerAccentFromSources } from "@/lib/bookmaker-accent";
+import { resolvePronosticoMatchContext } from "@/lib/pronostico-match-resolution";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
@@ -188,7 +189,16 @@ export default async function DetallePage({
     );
   }
 
-  const canSettle = isOwner && canSettlePronostico(p.fecha_evento, p.estado);
+  const resolvedMatchContext =
+    isOwner && p.estado === "pendiente" && !p.fecha_evento
+      ? await resolvePronosticoMatchContext({
+          supabase,
+          evento: String(p.evento ?? ""),
+          mercado: String(p.mercado ?? ""),
+        })
+      : null;
+  const settlementFechaEvento = p.fecha_evento ?? resolvedMatchContext?.kickoffAt ?? null;
+  const canSettle = isOwner && canSettlePronostico(settlementFechaEvento, p.estado);
   const impliedProbability = Math.round((1 / Number(p.cuota)) * 100);
   const confidenceLabel =
     p.confianza >= 4 ? "Conviccion alta" : p.confianza === 3 ? "Conviccion media" : "Conviccion prudente";
@@ -264,9 +274,9 @@ export default async function DetallePage({
 
               <div>
                 <h1>{p.evento}</h1>
-                {p.fecha_evento && (
+                {settlementFechaEvento && (
                   <p className="detail__event">
-                    {new Date(p.fecha_evento).toLocaleString("es-ES", {
+                    {new Date(settlementFechaEvento).toLocaleString("es-ES", {
                       weekday: "short",
                       day: "numeric",
                       month: "short",

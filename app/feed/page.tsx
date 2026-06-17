@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TodosGanamosShell } from "../components/todosganamos-shell";
@@ -80,7 +81,9 @@ type SidebarMatch = {
   competition_code: string | null;
   competition_name: string | null;
   home_team_name: string;
+  home_team_crest: string | null;
   away_team_name: string;
+  away_team_crest: string | null;
   kickoff_at: string;
   status: string;
 };
@@ -496,7 +499,9 @@ export default async function FeedPage({
   let upcomingMatches: SidebarMatch[] = [];
   const { data: sidebarMatchRows, error: sidebarMatchError } = await supabase
     .from("football_matches")
-    .select("id, competition_code, competition_name, home_team_name, away_team_name, kickoff_at, status")
+    .select(
+      "id, competition_code, competition_name, home_team_name, home_team_crest, away_team_name, away_team_crest, kickoff_at, status"
+    )
     .gte("kickoff_at", new Date().toISOString())
     .neq("status", "finished")
     .order("kickoff_at", { ascending: true })
@@ -965,9 +970,35 @@ export default async function FeedPage({
                     <li key={match.id}>
                       <Link className="sidebar-match" href={`/nuevo?matchId=${match.id}`}>
                         <span className="sidebar-match__teams">
-                          <strong>{match.home_team_name}</strong>
-                          <span>vs</span>
-                          <strong>{match.away_team_name}</strong>
+                          <span className="sidebar-match__team">
+                            {match.home_team_crest && (
+                              <Image
+                                alt=""
+                                className="sidebar-match__crest"
+                                height={20}
+                                loading="lazy"
+                                src={match.home_team_crest}
+                                unoptimized
+                                width={20}
+                              />
+                            )}
+                            <strong>{match.home_team_name}</strong>
+                          </span>
+                          <span className="sidebar-match__vs">vs</span>
+                          <span className="sidebar-match__team sidebar-match__team--away">
+                            <strong>{match.away_team_name}</strong>
+                            {match.away_team_crest && (
+                              <Image
+                                alt=""
+                                className="sidebar-match__crest"
+                                height={20}
+                                loading="lazy"
+                                src={match.away_team_crest}
+                                unoptimized
+                                width={20}
+                              />
+                            )}
+                          </span>
                         </span>
                         <span className="sidebar-match__meta">
                           {match.competition_name ?? match.competition_code ?? "Futbol"} ·{" "}

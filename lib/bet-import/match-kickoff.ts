@@ -80,9 +80,10 @@ export function latestImportedKickoff(
   return latestIsoDate([fallbackKickoffAt, ...selections.map((selection) => selection.kickoffAt)]);
 }
 
-async function findMatchesForImportedEvent(
+export async function findMatchesForImportedEvent(
   supabase: SupabaseClient,
-  eventName: string
+  eventName: string,
+  options: { includeFinished?: boolean; dateFrom?: string } = {}
 ) {
   const { getMatchesForPicker } = await import("../football-data/search.ts");
   const teams = splitEventTeams(eventName);
@@ -91,11 +92,27 @@ async function findMatchesForImportedEvent(
   const byId = new Map<string, FootballMatchPickerItem>();
 
   for (const query of uniqueTerms.slice(0, 4)) {
-    const matches = await getMatchesForPicker({ query, limit: 30, supabase });
+    const matches = await getMatchesForPicker({
+      query,
+      dateFrom: options.dateFrom,
+      includeFinished: options.includeFinished,
+      allowPastDates: options.includeFinished,
+      limit: 30,
+      supabase,
+    });
     for (const match of matches) byId.set(match.id, match);
   }
 
   return Array.from(byId.values());
+}
+
+export async function resolveFootballMatchForEvent(
+  supabase: SupabaseClient,
+  eventName: string,
+  options: { includeFinished?: boolean; dateFrom?: string } = {}
+) {
+  const matches = await findMatchesForImportedEvent(supabase, eventName, options);
+  return findFootballMatchForImportedEvent(eventName, matches);
 }
 
 export async function resolveImportedSelectionKickoffs(
@@ -110,8 +127,7 @@ export async function resolveImportedSelectionKickoffs(
 
       const eventKey = normalizeMatchText(selection.eventName);
       if (!matchCache.has(eventKey)) {
-        const matches = await findMatchesForImportedEvent(supabase, selection.eventName);
-        matchCache.set(eventKey, findFootballMatchForImportedEvent(selection.eventName, matches));
+        matchCache.set(eventKey, await resolveFootballMatchForEvent(supabase, selection.eventName));
       }
 
       const match = matchCache.get(eventKey);

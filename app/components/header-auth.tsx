@@ -4,23 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { logout } from "@/app/actions/auth";
+import { UserAvatar } from "./user-avatar";
 import type { User } from "@supabase/supabase-js";
-
-const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
-
-function avatarColor(username: string) {
-  let h = 0;
-  for (let i = 0; i < username.length; i++) h = username.charCodeAt(i) + ((h << 5) - h);
-  return COLORS[Math.abs(h) % COLORS.length];
-}
-
-function initials(name: string) {
-  return name.slice(0, 2).toUpperCase();
-}
 
 export function HeaderAuth() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  const [username, setUsername] = useState<string>("");
+  const [profile, setProfile] = useState<{ username: string; avatar_url: string | null } | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -30,18 +19,18 @@ export function HeaderAuth() {
       if (user) {
         supabase
           .from("profiles")
-          .select("username")
+          .select("username, avatar_url")
           .eq("id", user.id)
           .single()
           .then(({ data }) => {
-            if (data) setUsername(data.username);
+            if (data) setProfile(data);
           });
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (!session?.user) setUsername("");
+      if (!session?.user) setProfile(null);
     });
 
     return () => subscription.unsubscribe();
@@ -64,14 +53,18 @@ export function HeaderAuth() {
     );
   }
 
-  const name = username || user.email?.split("@")[0] || "yo";
-  const color = avatarColor(name);
+  const name = profile?.username || user.email?.split("@")[0] || "yo";
 
   return (
     <>
-      <Link href="/cuenta" className={`avatar avatar--sm avatar--${color} header-auth__avatar`} title={name}>
-        {initials(name)}
-      </Link>
+      <UserAvatar
+        avatarUrl={profile?.avatar_url}
+        href="/cuenta"
+        linkClassName="header-auth__avatar"
+        size="sm"
+        title={name}
+        username={name}
+      />
       <Link className="btn btn--primary header-auth__publish" href="/nuevo">
         + Publicar
       </Link>

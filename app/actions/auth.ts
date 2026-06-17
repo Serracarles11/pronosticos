@@ -6,6 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import { normalizeAuthRedirect } from "@/lib/auth-redirect";
 import { getPublicSiteOrigin } from "@/lib/site-url";
 import { checkBlockedWords, checkRepeatedLinks, logAntiSpamEvent, recordLinkUsage } from "@/lib/anti-spam/server";
+import {
+  PROFILE_AVATAR_BUCKET,
+  profileAvatarStoragePath,
+  validateProfileAvatarFile,
+} from "@/lib/profile-avatar";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
@@ -144,6 +149,9 @@ export async function updateAccount(formData: FormData) {
     .filter(Boolean)
     .slice(0, 12);
   const isPrivate = formData.get("is_private") === "on";
+  const removeAvatar = formData.get("remove_avatar") === "on";
+  const avatar = formData.get("avatar");
+  const avatarFile = avatar instanceof File && avatar.size > 0 ? avatar : null;
 
   if (!/^[a-z0-9_]{3,24}$/.test(username)) {
     accountError("El usuario debe tener entre 3 y 24 caracteres: letras, numeros o guion bajo.");
@@ -159,6 +167,13 @@ export async function updateAccount(formData: FormData) {
 
   if (countryCode && !/^[A-Z]{2}$/.test(countryCode)) {
     accountError("Usa un codigo de pais de dos letras, por ejemplo ES.");
+  }
+
+  if (avatarFile) {
+    const avatarValidation = validateProfileAvatarFile(avatarFile);
+    if (!avatarValidation.ok) {
+      accountError(avatarValidation.error);
+    }
   }
 
   const linkCheck = await checkRepeatedLinks(supabase, user.id, bio);
@@ -181,9 +196,48 @@ export async function updateAccount(formData: FormData) {
     accountError("El perfil incluye palabras bloqueadas.");
   }
 
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const avatarPath = profileAvatarStoragePath(user.id);
+  let avatarUpdate: { avatar_url?: string | null } = {};
+
+  if (removeAvatar || avatarFile) {
+    await supabase.storage.from(PROFILE_AVATAR_BUCKET).remove([avatarPath]);
+    avatarUpdate = { avatar_url: null };
+  }
+
+  if (avatarFile) {
+    const { error: uploadError } = await supabase.storage
+      .from(PROFILE_AVATAR_BUCKET)
+      .upload(avatarPath, avatarFile, {
+        contentType: avatarFile.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      const message = uploadError.message.toLowerCase().includes("bucket")
+        ? "No existe el bucket profile-avatars. Aplica la migracion de avatares en Supabase."
+        : uploadError.message;
+      accountError(message);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from(PROFILE_AVATAR_BUCKET)
+      .getPublicUrl(avatarPath);
+
+    avatarUpdate = {
+      avatar_url: `${publicUrlData.publicUrl}?v=${Date.now()}`,
+    };
+  }
+
   const baseUpdates = {
     username,
     display_name: displayName || username,
+    ...avatarUpdate,
     bio: bio || null,
     is_private: isPrivate,
   };
@@ -213,6 +267,9 @@ export async function updateAccount(formData: FormData) {
 
   revalidatePath("/cuenta");
   revalidatePath("/perfil");
+  if (currentProfile?.username && currentProfile.username !== username) {
+    revalidatePath(`/u/${currentProfile.username}`);
+  }
   revalidatePath(`/u/${username}`);
   redirect("/cuenta?ok=perfil");
 }

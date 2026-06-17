@@ -1449,6 +1449,26 @@ button {
   line-height: 1.28;
 }
 
+.pred__title,
+.pred__title-time,
+.detail__pred h1,
+.detail__event,
+.pred__cell-label,
+.pred__cell-value,
+.combo-selection,
+.sidebar-match,
+.match-picker__selected,
+.match-option,
+.pick-row__match,
+.profile__row-title-clean,
+.profile__row h3,
+.profile__row-meta,
+.rail__item-title,
+.rail__item-meta {
+  font-family: var(--font-match), var(--font-sans), system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
 .pred__title-row {
   display: flex;
   align-items: center;
@@ -1800,8 +1820,8 @@ button {
 .sidebar-match {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 11px 12px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: #fff;
@@ -1818,11 +1838,30 @@ button {
 .sidebar-match__teams {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
   line-height: 1.2;
+}
+
+.sidebar-match__team {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sidebar-match__team--away {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.sidebar-match__crest {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  object-fit: contain;
 }
 
 .sidebar-match__teams strong {
@@ -1834,10 +1873,15 @@ button {
   white-space: nowrap;
 }
 
-.sidebar-match__teams span {
+.sidebar-match__vs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-3);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .sidebar-match__meta {
@@ -4418,6 +4462,29 @@ button {
   gap: 16px;
 }
 
+.profile-photo-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--blue-50);
+}
+
+.profile-photo-field__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.check-field--compact {
+  min-height: auto;
+  padding: 10px 12px;
+}
+
 .account-panel__divider {
   height: 1px;
   margin: 26px 0;
@@ -5428,6 +5495,10 @@ button {
 
   .social-settings__visibility {
     min-height: auto;
+  }
+
+  .profile-photo-field {
+    grid-template-columns: 1fr;
   }
 
   .member-gate {

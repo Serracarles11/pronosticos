@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeBetCopyLink, normalizePickCategories } from "@/lib/pronostico-meta";
+import { resolveFootballMatchForEvent } from "@/lib/bet-import/match-kickoff";
+import { resolvePronosticoMatchContext } from "@/lib/pronostico-match-resolution";
 import {
   localizeFootballCompetitionName,
   localizeFootballTeamName,
@@ -108,15 +110,35 @@ export async function createPronostico(formData: FormData) {
     if (!picks.length || picks.some((p) => !p.mercado || !p.cuota)) {
       return { error: "Rellena todos los campos de cada seleccion." };
     }
-    const cleanPicks = picks.map((pick) => ({
-      mercado: String(pick.mercado ?? "").trim(),
-      seleccion: String(pick.seleccion ?? "").trim(),
-      cuota: String(pick.cuota ?? "").trim().replace(",", "."),
-      eventName: String(pick.eventName ?? "").trim(),
-      competition: String(pick.competition ?? "").trim(),
-      kickoffAt: String(pick.kickoffAt ?? "").trim(),
-      footballMatchId: String(pick.footballMatchId ?? "").trim(),
-      footballMatchExternalId: String(pick.footballMatchExternalId ?? "").trim(),
+    const cleanPicks = await Promise.all(picks.map(async (pick) => {
+      const cleanPick = {
+        mercado: String(pick.mercado ?? "").trim(),
+        seleccion: String(pick.seleccion ?? "").trim(),
+        cuota: String(pick.cuota ?? "").trim().replace(",", "."),
+        eventName: String(pick.eventName ?? "").trim(),
+        competition: String(pick.competition ?? "").trim(),
+        kickoffAt: String(pick.kickoffAt ?? "").trim(),
+        footballMatchId: String(pick.footballMatchId ?? "").trim(),
+        footballMatchExternalId: String(pick.footballMatchExternalId ?? "").trim(),
+      };
+
+      if (!cleanPick.eventName || cleanPick.kickoffAt) return cleanPick;
+
+      try {
+        const match = await resolveFootballMatchForEvent(supabase, cleanPick.eventName);
+        if (!match) return cleanPick;
+
+        return {
+          ...cleanPick,
+          eventName: `${localizeFootballTeamName(match.home_team_name)} vs ${localizeFootballTeamName(match.away_team_name)}`,
+          competition: cleanPick.competition || match.competition_name || match.competition_code || "",
+          kickoffAt: match.kickoff_at,
+          footballMatchId: cleanPick.footballMatchId || match.id,
+          footballMatchExternalId: cleanPick.footballMatchExternalId || match.external_id,
+        };
+      } catch {
+        return cleanPick;
+      }
     }));
     const pickEvents = Array.from(new Set(cleanPicks.map((pick) => pick.eventName).filter(Boolean)));
     const pickCompetitions = Array.from(
@@ -587,6 +609,7 @@ export async function settlePronostico(formData: FormData) {
   const pronosticoId = String(formData.get("pronostico_id") ?? "");
   const estado = String(formData.get("estado") ?? "");
   const captura = formData.get("captura");
+  const capturaFile = captura instanceof File && captura.size > 0 ? captura : null;
 
   if (!user) redirect("/auth");
   if (!pronosticoId) redirect("/feed");
@@ -594,23 +617,17 @@ export async function settlePronostico(formData: FormData) {
     settleRedirect(pronosticoId, "Elige si el pronostico fue acertado o fallado.");
   }
 
-  if (!(captura instanceof File) || captura.size === 0) {
-    settleRedirect(pronosticoId, "Sube una captura de la apuesta para cerrar el resultado.");
-  }
-
-  const capturaFile = captura as File;
-
-  if (!capturaFile.type.startsWith("image/")) {
+  if (capturaFile && !capturaFile.type.startsWith("image/")) {
     settleRedirect(pronosticoId, "La captura debe ser una imagen.");
   }
 
-  if (capturaFile.size > 5 * 1024 * 1024) {
+  if (capturaFile && capturaFile.size > 5 * 1024 * 1024) {
     settleRedirect(pronosticoId, "La captura no puede superar 5 MB.");
   }
 
   const { data: pronostico, error: fetchError } = await supabase
     .from("pronosticos")
-    .select("id, user_id, estado, fecha_evento")
+    .select("id, user_id, estado, fecha_evento, evento, mercado")
     .eq("id", pronosticoId)
     .single();
 
@@ -626,40 +643,65 @@ export async function settlePronostico(formData: FormData) {
     settleRedirect(pronosticoId, "Este pronostico ya esta cerrado.");
   }
 
-  if (!pronostico.fecha_evento) {
+  const resolvedMatchContext = !pronostico.fecha_evento
+    ? await resolvePronosticoMatchContext({
+        supabase,
+        evento: String(pronostico.evento ?? ""),
+        mercado: String(pronostico.mercado ?? ""),
+      })
+    : null;
+  const settlementFechaEvento = pronostico.fecha_evento ?? resolvedMatchContext?.kickoffAt ?? null;
+
+  if (!settlementFechaEvento) {
     settleRedirect(pronosticoId, "Este pronostico no tiene fecha de evento.");
   }
 
-  if (!canSettlePronostico(pronostico.fecha_evento, pronostico.estado)) {
-    settleRedirect(pronosticoId, "Podras cerrar el pronostico cuando haya pasado la hora del partido.");
+  if (!canSettlePronostico(settlementFechaEvento, pronostico.estado)) {
+    settleRedirect(pronosticoId, "Podras cerrar el pronostico 2 horas despues de que termine el partido.");
   }
 
-  const rawExt = capturaFile.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const ext = /^[a-z0-9]+$/.test(rawExt) ? rawExt : "jpg";
-  const path = `${user.id}/${pronosticoId}-${Date.now()}.${ext}`;
+  const referenceUpdate =
+    resolvedMatchContext?.footballMatchId && resolvedMatchContext.footballMatchExternalId
+      ? {
+          football_match_id: resolvedMatchContext.footballMatchId,
+          football_match_external_id: resolvedMatchContext.footballMatchExternalId,
+        }
+      : {};
+  let proofUpdate = {};
+  if (capturaFile) {
+    const rawExt = capturaFile.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const ext = /^[a-z0-9]+$/.test(rawExt) ? rawExt : "jpg";
+    const path = `${user.id}/${pronosticoId}-${Date.now()}.${ext}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from("capturas-pronosticos")
-    .upload(path, capturaFile, {
-      contentType: capturaFile.type,
-      upsert: false,
-    });
+    const { error: uploadError } = await supabase.storage
+      .from("capturas-pronosticos")
+      .upload(path, capturaFile, {
+        contentType: capturaFile.type,
+        upsert: false,
+      });
 
-  if (uploadError) {
-    settleRedirect(pronosticoId, uploadError.message);
+    if (uploadError) {
+      settleRedirect(pronosticoId, uploadError.message);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("capturas-pronosticos")
+      .getPublicUrl(path);
+
+    proofUpdate = {
+      resultado_captura_path: path,
+      resultado_captura_url: publicUrlData.publicUrl,
+    };
   }
-
-  const { data: publicUrlData } = supabase.storage
-    .from("capturas-pronosticos")
-    .getPublicUrl(path);
 
   const { error: updateError } = await supabase
     .from("pronosticos")
     .update({
       estado,
-      resultado_captura_path: path,
-      resultado_captura_url: publicUrlData.publicUrl,
+      fecha_evento: pronostico.fecha_evento ?? settlementFechaEvento,
       resultado_reportado_at: new Date().toISOString(),
+      ...referenceUpdate,
+      ...proofUpdate,
     })
     .eq("id", pronosticoId)
     .eq("user_id", user.id);
