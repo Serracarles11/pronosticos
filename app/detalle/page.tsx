@@ -20,6 +20,7 @@ import { getBookmakerAccentFromSources } from "@/lib/bookmaker-accent";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
 import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
+import { canSettlePronostico } from "@/lib/pronostico-settlement";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 
@@ -43,11 +44,6 @@ function EstadoPill({ estado }: { estado: string }) {
   if (estado === "fallada")
     return <span className="pill pill--bad"><span className="pill__dot" />Fallada</span>;
   return <span className="pill pill--warn"><span className="pill__dot" />Pendiente</span>;
-}
-
-function canSettlePronostico(fechaEvento: string | null, estado: string) {
-  if (!fechaEvento || estado !== "pendiente") return false;
-  return Date.now() >= new Date(fechaEvento).getTime() + 24 * 60 * 60 * 1000;
 }
 
 function getCopyLink(value: unknown) {

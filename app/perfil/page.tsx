@@ -4,6 +4,7 @@ import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { FollowButton } from "../components/follow-button";
 import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
+import { canSettlePronostico } from "@/lib/pronostico-settlement";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 function avatarColor(username: string) {
@@ -18,11 +19,6 @@ function timeAgo(dateStr: string) {
   if (h < 1) return "Hace unos minutos";
   if (h < 24) return `Hace ${h} h`;
   return `Hace ${Math.floor(h / 24)} dias`;
-}
-
-function canSettlePronostico(fechaEvento: string | null, estado: string) {
-  if (!fechaEvento || estado !== "pendiente") return false;
-  return Date.now() >= new Date(fechaEvento).getTime() + 24 * 60 * 60 * 1000;
 }
 
 export default async function PerfilPage({
@@ -107,11 +103,10 @@ export default async function PerfilPage({
   let pronosticosQuery = supabase
     .from("pronosticos")
     .select("id, evento, mercado, cuota, estado, competicion, created_at, visibilidad, fecha_evento")
-    .eq("user_id", profileData.id)
-    .or(upcomingPronosticoFilter());
+    .eq("user_id", profileData.id);
 
   if (!isOwnProfile) {
-    pronosticosQuery = pronosticosQuery.neq("visibilidad", "borrador");
+    pronosticosQuery = pronosticosQuery.neq("visibilidad", "borrador").or(upcomingPronosticoFilter());
   }
 
   const { data: pronosticos } = await pronosticosQuery

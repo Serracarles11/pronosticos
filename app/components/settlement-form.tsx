@@ -114,8 +114,8 @@ export function SettlementForm({ pronosticoId }: SettlementFormProps) {
       <div>
         <h3>Cerrar pronostico</h3>
         <p>
-          Ya han pasado 24 horas desde el evento. Sube una captura de la apuesta
-          y marca el resultado.
+          Ya ha pasado la hora del partido. Sube una captura de la apuesta y
+          marca el resultado.
         </p>
       </div>
       {error && <div className="auth-error">{error}</div>}

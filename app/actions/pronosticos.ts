@@ -28,6 +28,7 @@ import {
   recordLinkUsage,
   reviewContentForSpam,
 } from "@/lib/anti-spam/server";
+import { canSettlePronostico } from "@/lib/pronostico-settlement";
 
 export async function createPronostico(formData: FormData) {
   const supabase = await createClient();
@@ -629,9 +630,8 @@ export async function settlePronostico(formData: FormData) {
     settleRedirect(pronosticoId, "Este pronostico no tiene fecha de evento.");
   }
 
-  const canSettleAt = new Date(pronostico.fecha_evento).getTime() + 24 * 60 * 60 * 1000;
-  if (Date.now() < canSettleAt) {
-    settleRedirect(pronosticoId, "Podras cerrar el pronostico 24 horas despues del evento.");
+  if (!canSettlePronostico(pronostico.fecha_evento, pronostico.estado)) {
+    settleRedirect(pronosticoId, "Podras cerrar el pronostico cuando haya pasado la hora del partido.");
   }
 
   const rawExt = capturaFile.name.split(".").pop()?.toLowerCase() ?? "jpg";

@@ -72,6 +72,16 @@ const CATEGORIAS = [
 const FEED_PAGE_SIZE = 20;
 const VOTED_SORT_CANDIDATE_LIMIT = 100;
 
+type SidebarMatch = {
+  id: string;
+  competition_code: string | null;
+  competition_name: string | null;
+  home_team_name: string;
+  away_team_name: string;
+  kickoff_at: string;
+  status: string;
+};
+
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 function avatarColor(username: string) {
   let h = 0;
@@ -161,6 +171,33 @@ function formatSidebarMatchDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function normalizeMatchLookup(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function findFirstUpcomingMatchForEvent(eventName: string, matches: SidebarMatch[]) {
+  const eventText = normalizeMatchLookup(eventName);
+  if (!eventText) return null;
+
+  return matches.find((match) => {
+    const home = normalizeMatchLookup(match.home_team_name);
+    const away = normalizeMatchLookup(match.away_team_name);
+    if (!home || !away) return false;
+    return (
+      eventText.includes(home) ||
+      eventText.includes(away) ||
+      home.includes(eventText) ||
+      away.includes(eventText)
+    );
+  }) ?? null;
 }
 
 function stableRandomScore(value: string, seed: string) {
@@ -452,16 +489,8 @@ export default async function FeedPage({
     }
   }
 
-  type SidebarMatch = {
-    id: string;
-    competition_code: string | null;
-    competition_name: string | null;
-    home_team_name: string;
-    away_team_name: string;
-    kickoff_at: string;
-    status: string;
-  };
   let sidebarMatches: SidebarMatch[] = [];
+  let upcomingMatches: SidebarMatch[] = [];
   const { data: sidebarMatchRows, error: sidebarMatchError } = await supabase
     .from("football_matches")
     .select("id, competition_code, competition_name, home_team_name, away_team_name, kickoff_at, status")
@@ -472,13 +501,13 @@ export default async function FeedPage({
 
   if (!sidebarMatchError) {
     const seed = new Date().toISOString().slice(0, 10);
-    sidebarMatches = ((sidebarMatchRows ?? []) as SidebarMatch[])
-      .map((match) => ({
-        ...match,
-        competition_name: localizeFootballCompetitionName(match.competition_name),
-        home_team_name: localizeFootballTeamName(match.home_team_name),
-        away_team_name: localizeFootballTeamName(match.away_team_name),
-      }))
+    upcomingMatches = ((sidebarMatchRows ?? []) as SidebarMatch[]).map((match) => ({
+      ...match,
+      competition_name: localizeFootballCompetitionName(match.competition_name),
+      home_team_name: localizeFootballTeamName(match.home_team_name),
+      away_team_name: localizeFootballTeamName(match.away_team_name),
+    }));
+    sidebarMatches = [...upcomingMatches]
       .sort((a, b) => stableRandomScore(a.id, seed) - stableRandomScore(b.id, seed))
       .slice(0, 5);
   }
@@ -780,6 +809,10 @@ export default async function FeedPage({
                     ? item.copy_link
                     : null;
                 const bookmakerAccent = getBookmakerAccentFromSources(item.bookmaker, copyLink);
+                const fallbackMatch = item.fecha_evento
+                  ? null
+                  : findFirstUpcomingMatchForEvent(String(item.evento ?? ""), upcomingMatches);
+                const eventDate = String(item.fecha_evento ?? fallbackMatch?.kickoff_at ?? "");
 
                 return (
                   <article
@@ -830,12 +863,17 @@ export default async function FeedPage({
                         )}
                       </div>
                     </header>
-                    <div>
+                    <div className="pred__title-row">
                       <h3 className="pred__title">
                         <Link href={`/detalle?id=${item.id as string}`}>
                           {item.evento as string}
                         </Link>
                       </h3>
+                      {eventDate && (
+                        <span className="pred__title-time">
+                          {formatSidebarMatchDate(eventDate)}
+                        </span>
+                      )}
                     </div>
                     {isCombined && (
                       <div className="combo-selections combo-selections--feed">
