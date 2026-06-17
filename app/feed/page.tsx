@@ -15,7 +15,10 @@ import {
   localizeFootballCompetitionName,
   localizeFootballTeamName,
 } from "@/lib/football-data/localize";
-import { parsePronosticoSelections } from "@/lib/pronostico-selections";
+import {
+  formatPronosticoSelectionPick,
+  parsePronosticoSelections,
+} from "@/lib/pronostico-selections";
 import { getBookmakerAccentFromSources } from "@/lib/bookmaker-accent";
 import {
   fetchPronosticoBookmakers,
@@ -884,7 +887,7 @@ export default async function FeedPage({
                               {selection.eventName && (
                                 <strong>{selection.eventName}</strong>
                               )}
-                              <span>{selection.pick}</span>
+                              <span>{formatPronosticoSelectionPick(selection.pick)}</span>
                             </div>
                           </div>
                         ))}
@@ -900,7 +903,9 @@ export default async function FeedPage({
                       {!isCombined && (
                         <div className="pred__cell">
                           <div className="pred__cell-label">Pronostico</div>
-                          <div className="pred__cell-value">{item.mercado as string}</div>
+                          <div className="pred__cell-value">
+                            {formatPronosticoSelectionPick(item.mercado as string)}
+                          </div>
                         </div>
                       )}
                       <div className="pred__cell pred__cell--accent">

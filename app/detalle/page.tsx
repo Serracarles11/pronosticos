@@ -15,7 +15,10 @@ import { DeletePronosticoButton } from "../components/delete-pronostico-button";
 import { EditPronosticoLinkButton } from "../components/edit-pronostico-link-button";
 import { BackButton } from "../components/back-button";
 import { formatPickCategory } from "@/lib/pronostico-meta";
-import { parsePronosticoSelections } from "@/lib/pronostico-selections";
+import {
+  formatPronosticoSelectionPick,
+  parsePronosticoSelections,
+} from "@/lib/pronostico-selections";
 import { getBookmakerAccentFromSources } from "@/lib/bookmaker-accent";
 import { getMutedUserIds, isMissingOptionalSchema } from "@/lib/anti-spam/server";
 import { filterVisibleItemsForModeration } from "@/lib/anti-spam/pure";
@@ -292,7 +295,7 @@ export default async function DetallePage({
                       <span className="combo-selection__num">{selectionIndex + 1}</span>
                       <div>
                         {selection.eventName && <strong>{selection.eventName}</strong>}
-                        <span>{selection.pick}</span>
+                        <span>{formatPronosticoSelectionPick(selection.pick)}</span>
                       </div>
                     </div>
                   ))}
@@ -303,7 +306,7 @@ export default async function DetallePage({
                 {!isCombined && (
                   <div className="pred__cell">
                     <div className="pred__cell-label">Pronostico</div>
-                    <div className="pred__cell-value">{p.mercado}</div>
+                    <div className="pred__cell-value">{formatPronosticoSelectionPick(p.mercado)}</div>
                   </div>
                 )}
                 <div className="pred__cell pred__cell--accent">

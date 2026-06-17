@@ -23,6 +23,8 @@ function optionalIso(value: unknown) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+const UNKNOWN_TEAM_NAME = "Por definir";
+
 export function mapFootballDataStatus(status?: FootballDataStatus | null): InternalMatchStatus {
   if (status === "IN_PLAY" || status === "PAUSED") return "live";
   if (status === "FINISHED") return "finished";
@@ -39,7 +41,7 @@ export function normalizeFootballDataMatch(rawMatch: FootballDataRawMatch): Norm
   const homeTeamShortName = optionalString(rawMatch.homeTeam?.shortName ?? rawMatch.homeTeam?.tla);
   const awayTeamShortName = optionalString(rawMatch.awayTeam?.shortName ?? rawMatch.awayTeam?.tla);
 
-  if (!externalId || !kickoffAt || !homeTeamName || !awayTeamName) {
+  if (!externalId || !kickoffAt) {
     throw new Error("Partido football-data incompleto.");
   }
 
@@ -50,11 +52,11 @@ export function normalizeFootballDataMatch(rawMatch: FootballDataRawMatch): Norm
     competition_name: localizeFootballCompetitionName(optionalString(rawMatch.competition?.name)),
     competition_emblem: optionalString(rawMatch.competition?.emblem),
     home_team_id: rawMatch.homeTeam?.id == null ? null : String(rawMatch.homeTeam.id),
-    home_team_name: localizeFootballTeamName(homeTeamName),
+    home_team_name: localizeFootballTeamName(homeTeamName ?? UNKNOWN_TEAM_NAME),
     home_team_short_name: homeTeamShortName ? localizeFootballTeamName(homeTeamShortName) : null,
     home_team_crest: optionalString(rawMatch.homeTeam?.crest),
     away_team_id: rawMatch.awayTeam?.id == null ? null : String(rawMatch.awayTeam.id),
-    away_team_name: localizeFootballTeamName(awayTeamName),
+    away_team_name: localizeFootballTeamName(awayTeamName ?? UNKNOWN_TEAM_NAME),
     away_team_short_name: awayTeamShortName ? localizeFootballTeamName(awayTeamShortName) : null,
     away_team_crest: optionalString(rawMatch.awayTeam?.crest),
     kickoff_at: kickoffAt,
