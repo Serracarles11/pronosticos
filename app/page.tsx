@@ -193,7 +193,7 @@ export default async function HomePage() {
                   const bookmakerAccent = getBookmakerAccentFromSources(p.bookmaker, p.copy_link);
                   const selections = parsePronosticoSelections(String(p.mercado ?? ""));
                   const isCombined = selections.length > 1;
-                  const visibleSelections = selections.slice(0, 4);
+                  const visibleSelections = selections.slice(0, 2);
                   const hiddenSelectionCount = Math.max(0, selections.length - visibleSelections.length);
                   return (
                     <article

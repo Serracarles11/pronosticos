@@ -805,7 +805,7 @@ export default async function FeedPage({
                 const canFollow = !!user && user.id !== userId;
                 const selections = parsePronosticoSelections(String(item.mercado ?? ""));
                 const isCombined = selections.length > 1;
-                const visibleSelections = selections.slice(0, 4);
+                const visibleSelections = selections.slice(0, 2);
                 const hiddenSelectionCount = Math.max(0, selections.length - visibleSelections.length);
                 const copyLink =
                   typeof item.copy_link === "string" && item.copy_link.startsWith("https://")
