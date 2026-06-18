@@ -2959,6 +2959,81 @@ button {
   padding: 28px;
 }
 
+.detail__inner--locked {
+  display: block;
+  max-width: 900px;
+}
+
+.locked-pronostico {
+  position: relative;
+  min-height: 590px;
+}
+
+.locked-pronostico__preview {
+  pointer-events: none;
+  user-select: none;
+  filter: blur(8px);
+  opacity: 0.62;
+}
+
+.locked-pronostico__comment {
+  padding: 20px;
+}
+
+.locked-pronostico__gate {
+  width: min(480px, calc(100% - 32px));
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 14px;
+  padding: 30px;
+  border: 1px solid rgba(46, 99, 220, 0.2);
+  border-radius: var(--r-xl);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 70px rgba(11, 31, 58, 0.2);
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.locked-pronostico__gate h1,
+.locked-pronostico__gate p {
+  margin: 0;
+}
+
+.locked-pronostico__gate h1 {
+  font-size: 25px;
+  letter-spacing: -0.02em;
+}
+
+.locked-pronostico__gate p {
+  max-width: 390px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
+.locked-pronostico__icon {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--blue-50);
+  font-size: 24px;
+}
+
+.locked-pronostico__actions {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 .detail__pred h1 {
   font-size: 28px;
 }
@@ -5892,6 +5967,27 @@ button {
 
   .detail__pred h1 {
     font-size: 23px;
+  }
+
+  .locked-pronostico {
+    min-height: 540px;
+  }
+
+  .locked-pronostico__gate {
+    top: 44%;
+    padding: 24px 18px;
+  }
+
+  .locked-pronostico__gate h1 {
+    font-size: 22px;
+  }
+
+  .locked-pronostico__actions {
+    flex-direction: column;
+  }
+
+  .locked-pronostico__actions .btn {
+    width: 100%;
   }
 
   .detail__actions {

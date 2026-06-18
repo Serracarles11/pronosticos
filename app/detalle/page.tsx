@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { TodosGanamosShell } from "../components/todosganamos-shell";
 import { createClient } from "@/lib/supabase/server";
 import { LikeButton } from "../components/like-button";
@@ -63,6 +63,105 @@ function getCopyLink(value: unknown) {
   }
 }
 
+function LockedPronosticoPreview({ id }: { id: string }) {
+  const next = `/detalle?id=${encodeURIComponent(id)}`;
+  const encodedNext = encodeURIComponent(next);
+
+  return (
+    <TodosGanamosShell active="feed">
+      <main className="detail detail--locked">
+        <div className="detail__inner detail__inner--locked">
+          <section className="detail__main">
+            <BackButton />
+
+            <div className="locked-pronostico">
+              <div aria-hidden="true" className="locked-pronostico__preview">
+                <article className="card detail__pred pred">
+                  <header className="pred__head">
+                    <div className="pred__author">
+                      <span className="avatar avatar--lg avatar--navy">TG</span>
+                      <div className="pred__author-meta">
+                        <span className="pred__user">Tipster de TodosGanamos</span>
+                        <span className="pred__sub">Pronostico compartido</span>
+                      </div>
+                    </div>
+                    <EstadoPill estado="pendiente" />
+                  </header>
+
+                  <div>
+                    <h1>Partido y pronostico exclusivo</h1>
+                    <p className="detail__event">Datos del evento y analisis del autor</p>
+                  </div>
+
+                  <div className="pred__strip">
+                    <div className="pred__cell">
+                      <div className="pred__cell-label">Pronostico</div>
+                      <div className="pred__cell-value">Seleccion del autor</div>
+                    </div>
+                    <div className="pred__cell pred__cell--accent">
+                      <div className="pred__cell-label">Cuota</div>
+                      <div className="pred__cell-value mono">0.00</div>
+                    </div>
+                    <div className="pred__cell">
+                      <div className="pred__cell-label">Confianza</div>
+                      <div className="pred__confidence">
+                        {[1, 2, 3, 4, 5].map((step) => (
+                          <span className={step <= 4 ? "is-on" : ""} key={step} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="detail__body">
+                    <p>
+                      El razonamiento completo, la seleccion y el resto de datos del pronostico
+                      se mostraran cuando hayas iniciado sesion.
+                    </p>
+                    <p>
+                      Accede a la comunidad para consultar esta apuesta compartida.
+                    </p>
+                  </div>
+                </article>
+
+                <section className="comments">
+                  <h2>Comentarios</h2>
+                  <div className="card locked-pronostico__comment">
+                    Conversacion de la comunidad sobre este pronostico.
+                  </div>
+                </section>
+              </div>
+
+              <div
+                aria-labelledby="locked-pronostico-title"
+                className="locked-pronostico__gate"
+                role="region"
+              >
+                <span className="locked-pronostico__icon" aria-hidden="true">🔒</span>
+                <h1 id="locked-pronostico-title">Inicia sesion para ver este pronostico</h1>
+                <p>
+                  La apuesta, la cuota y el analisis estan ocultos. Crea una cuenta o inicia
+                  sesion para desbloquearlos.
+                </p>
+                <div className="locked-pronostico__actions">
+                  <Link className="btn btn--primary" href={`/auth?next=${encodedNext}`}>
+                    Iniciar sesion
+                  </Link>
+                  <Link
+                    className="btn btn--ghost"
+                    href={`/auth?tab=registro&next=${encodedNext}`}
+                  >
+                    Crear cuenta
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </TodosGanamosShell>
+  );
+}
+
 export default async function DetallePage({
   searchParams,
 }: {
@@ -76,7 +175,6 @@ export default async function DetallePage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect(`/auth?next=${encodeURIComponent(`/detalle?id=${id}`)}`);
 
   const { data: p } = await supabase
     .from("pronosticos")
@@ -85,6 +183,7 @@ export default async function DetallePage({
     .single();
 
   if (!p) notFound();
+  if (!user) return <LockedPronosticoPreview id={id} />;
 
   const [{ count: likesCount }, likedRes, savedRes, followingRes, requestRes, comentariosRes, masDelAutorRes] =
     await Promise.all([
@@ -380,7 +479,10 @@ export default async function DetallePage({
                     <SaveButton pronosticoId={id} initialSaved={isSaved} />
                   )}
                   <CopyLinkButton disabled={!copyLink} url={copyLink ?? undefined} />
-                  <ShareButton title={`${p.evento} - ${p.mercado}`} />
+                  <ShareButton
+                    title={`${p.evento} - ${p.mercado}`}
+                    url={`/detalle?id=${encodeURIComponent(id)}`}
+                  />
                   {isOwner && <EditPronosticoLinkButton initialCopyLink={copyLink} pronosticoId={id} />}
                   {isOwner && <DeletePronosticoButton pronosticoId={id} />}
                   {user && !isOwner && <ReportButton pronosticoId={id} />}
