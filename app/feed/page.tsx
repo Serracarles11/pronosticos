@@ -236,7 +236,7 @@ export default async function FeedPage({
   const searchTerm = cleanSearchTerm(q);
   const searchFilter = cleanPostgrestSearch(searchTerm);
   const exactOdds = extractExactOdds(searchTerm);
-  const activeEstado = ["pendiente", "acertada", "fallada"].includes(estado ?? "")
+  const activeEstado = estado === "pendiente"
     ? String(estado)
     : "todos";
   const activeConfianza = confianza === "alta" ? "alta" : "todas";
@@ -287,7 +287,8 @@ export default async function FeedPage({
       likes ( count ),
       comentarios ( count )
     `)
-    .neq("visibilidad", "borrador");
+    .neq("visibilidad", "borrador")
+    .eq("estado", "pendiente");
 
   if (activeFilter === "siguiendo") {
     if (user && followedUserIds.length > 0) {
@@ -602,12 +603,6 @@ export default async function FeedPage({
       href: feedLink({ estado: activeEstado === "pendiente" ? "todos" : "pendiente" }),
       label: "Pendientes",
       active: activeEstado === "pendiente",
-      icon: "edit",
-    },
-    {
-      href: feedLink({ estado: activeEstado === "acertada" ? "todos" : "acertada" }),
-      label: "Acertadas",
-      active: activeEstado === "acertada",
       icon: "edit",
     },
     {

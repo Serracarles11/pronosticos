@@ -7,14 +7,15 @@ import {
 
 const now = new Date("2026-06-17T12:00:00.000Z");
 
-test("allows settling two hours after the estimated match end", () => {
+test("allows settling any pending pronostico", () => {
   assert.equal(canSettlePronostico("2026-06-17T08:00:00.000Z", "pendiente", now), true);
+  assert.equal(canSettlePronostico("2026-06-17T08:01:00.000Z", "pendiente", now), true);
+  assert.equal(canSettlePronostico(null, "pendiente", now), true);
 });
 
-test("does not allow settling before the settlement window or after it is already settled", () => {
-  assert.equal(canSettlePronostico("2026-06-17T08:01:00.000Z", "pendiente", now), false);
+test("does not allow settling after it is already settled", () => {
   assert.equal(canSettlePronostico("2026-06-17T08:00:00.000Z", "acertada", now), false);
-  assert.equal(canSettlePronostico(null, "pendiente", now), false);
+  assert.equal(canSettlePronostico(null, "fallada", now), false);
 });
 
 test("calculates settlement availability from kickoff plus four hours", () => {

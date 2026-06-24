@@ -10,9 +10,10 @@ import {
 } from "@/lib/anti-spam/server";
 import { normalizePickCategories } from "@/lib/pronostico-meta";
 import { canPublishBetImport } from "./access.ts";
-import { latestImportedKickoff, resolveImportedSelectionKickoffs } from "./match-kickoff.ts";
+import { latestImportedKickoff, resolveImportedSelectionKickoffMatches } from "./match-kickoff.ts";
 import { calculateTotalOdds } from "./parser.ts";
 import type { ConfirmBetImportPayload } from "./types.ts";
+import { resolveImportVisibility } from "./visibility.ts";
 
 function cleanText(value: string, fallback = "") {
   return (value || fallback).trim().slice(0, 500);
@@ -67,7 +68,8 @@ export async function createCombinedPickFromImport(
     return { error: "Esta importacion no esta lista para publicarse." };
   }
 
-  const resolvedSelections = await resolveImportedSelectionKickoffs(supabase, payload.selections);
+  const matchResolution = await resolveImportedSelectionKickoffMatches(supabase, payload.selections, payload.kickoffAt);
+  const resolvedSelections = matchResolution.selections;
   const resolvedKickoffAt = latestImportedKickoff(payload.kickoffAt, resolvedSelections);
   const resolvedPayload = { ...payload, selections: resolvedSelections, kickoffAt: resolvedKickoffAt };
 
@@ -79,9 +81,7 @@ export async function createCombinedPickFromImport(
   const competicion = cleanText(resolvedPayload.competition, "Importada");
   const explicacion =
     cleanText(resolvedPayload.explanation, "Combinada importada desde captura y revisada por el usuario.");
-  const visibilidad = ["publico", "seguidores", "borrador"].includes(resolvedPayload.visibility)
-    ? resolvedPayload.visibility
-    : "publico";
+  const visibilidad = resolveImportVisibility(resolvedPayload.visibility, matchResolution.unresolvedEventNames);
   const stakeSimulado = resolvedPayload.stakeSimulated && resolvedPayload.stakeSimulated > 0 ? resolvedPayload.stakeSimulated : 1;
 
   if (!cuota || cuota < 1.01) return { error: "Revisa las cuotas antes de publicar." };
@@ -208,5 +208,5 @@ export async function createCombinedPickFromImport(
   revalidatePath("/perfil");
   revalidatePath("/ranking");
 
-  return { ok: true, pronosticoId: insertedPick?.id ?? null };
+  return { ok: true, pronosticoId: insertedPick?.id ?? null, visibilidad };
 }

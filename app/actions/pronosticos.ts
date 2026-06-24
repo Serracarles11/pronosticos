@@ -643,22 +643,15 @@ export async function settlePronostico(formData: FormData) {
     settleRedirect(pronosticoId, "Este pronostico ya esta cerrado.");
   }
 
-  const resolvedMatchContext = !pronostico.fecha_evento
-    ? await resolvePronosticoMatchContext({
-        supabase,
-        evento: String(pronostico.evento ?? ""),
-        mercado: String(pronostico.mercado ?? ""),
-      })
-    : null;
+  const resolvedMatchContext =
+    !pronostico.fecha_evento && canSettlePronostico(pronostico.fecha_evento, pronostico.estado)
+      ? await resolvePronosticoMatchContext({
+          supabase,
+          evento: String(pronostico.evento ?? ""),
+          mercado: String(pronostico.mercado ?? ""),
+        })
+      : null;
   const settlementFechaEvento = pronostico.fecha_evento ?? resolvedMatchContext?.kickoffAt ?? null;
-
-  if (!settlementFechaEvento) {
-    settleRedirect(pronosticoId, "Este pronostico no tiene fecha de evento.");
-  }
-
-  if (!canSettlePronostico(settlementFechaEvento, pronostico.estado)) {
-    settleRedirect(pronosticoId, "Podras cerrar el pronostico 2 horas despues de que termine el partido.");
-  }
 
   const referenceUpdate =
     resolvedMatchContext?.footballMatchId && resolvedMatchContext.footballMatchExternalId
@@ -698,7 +691,7 @@ export async function settlePronostico(formData: FormData) {
     .from("pronosticos")
     .update({
       estado,
-      fecha_evento: pronostico.fecha_evento ?? settlementFechaEvento,
+      fecha_evento: settlementFechaEvento,
       resultado_reportado_at: new Date().toISOString(),
       ...referenceUpdate,
       ...proofUpdate,

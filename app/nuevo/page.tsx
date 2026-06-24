@@ -286,7 +286,7 @@ export default function NuevoPage() {
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
   const [preview, setPreview] = useState({
-    evento: "Real Sociedad - Villarreal",
+    evento: "Todosganamos - Casasdeapuestas",
     explicacion: "La Real lleva 6 partidos seguidos con BTTS en casa...",
     competicion: "Mundial",
   });
@@ -507,7 +507,7 @@ export default function NuevoPage() {
         warnings: importReview.warnings,
         stakeSimulated: importReview.stakeSimulated,
         kickoffAt: importReview.kickoffAt,
-        explanation: "Combinada importada desde captura y revisada por el usuario.",
+        explanation: "",
         visibility: "publico",
       });
       if (result?.error) setImportError(result.error);

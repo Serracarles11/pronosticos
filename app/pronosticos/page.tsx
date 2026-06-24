@@ -101,6 +101,7 @@ export default async function PronosticosPage() {
       profiles!pronosticos_user_id_fkey(username, display_name, is_shadowbanned)
     `)
     .eq("visibilidad", "publico")
+    .eq("estado", "pendiente")
     .or(upcomingPronosticoFilter())
     .order("created_at", { ascending: false })
     .limit(12);

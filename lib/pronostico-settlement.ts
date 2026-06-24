@@ -12,8 +12,7 @@ export function getPronosticoSettlementAvailableAt(fechaEvento: string | null) {
 }
 
 export function canSettlePronostico(fechaEvento: string | null, estado: string, now = new Date()) {
-  if (!fechaEvento || estado !== "pendiente") return false;
-  const availableAt = getPronosticoSettlementAvailableAt(fechaEvento);
-  if (!availableAt) return false;
-  return now.getTime() >= availableAt.getTime();
+  void fechaEvento;
+  void now;
+  return estado === "pendiente";
 }

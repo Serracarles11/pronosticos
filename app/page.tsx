@@ -90,6 +90,7 @@ export default async function HomePage() {
           .from("pronosticos")
           .select("id, evento, mercado, cuota, confianza, estado, copy_link, fecha_evento, competicion, created_at, profiles!pronosticos_user_id_fkey(username)")
           .eq("visibilidad", "publico")
+          .eq("estado", "pendiente")
           .or(upcomingPronosticoFilter())
           .order("created_at", { ascending: false })
           .limit(3),

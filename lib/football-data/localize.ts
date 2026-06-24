@@ -6,6 +6,7 @@ const TEAM_NAME_ES: Record<string, string> = {
   austria: "Austria",
   belgium: "Belgica",
   "bosnia and herzegovina": "Bosnia y Herzegovina",
+  "bosnia-herzegovina": "Bosnia y Herzegovina",
   brazil: "Brasil",
   canada: "Canada",
   "cape verde": "Cabo Verde",

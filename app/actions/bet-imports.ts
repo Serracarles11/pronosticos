@@ -16,7 +16,7 @@ export async function confirmBetImport(payload: ConfirmBetImportPayload) {
   const result = await createCombinedPickFromImport(supabase, user.id, payload);
   if (result.error) return { error: result.error };
 
-  redirect("/feed");
+  redirect(result.visibilidad === "borrador" ? "/perfil" : "/feed");
 }
 
 export async function discardBetImport(importId: string) {

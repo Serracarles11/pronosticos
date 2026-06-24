@@ -76,7 +76,7 @@ export default async function PartidosPage({
           <div>
             <span className="badge badge--purple">Football-data.org</span>
             <h1>Partidos de futbol</h1>
-            <p>Partidos sincronizados desde Supabase. No se llama al proveedor desde el navegador.</p>
+            <p></p>
           </div>
           <Link className="btn btn--primary" href="/nuevo">
             + Crear pronostico

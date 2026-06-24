@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { canPublishBetImport, canUserReadBetImport } from "../lib/bet-import/access.ts";
+import { resolveImportVisibility } from "../lib/bet-import/visibility.ts";
 import {
   calculateTotalOdds,
   detectBookmaker,
@@ -322,6 +323,12 @@ test("imports are not publishable before user confirmation state", () => {
   assert.equal(canPublishBetImport("failed"), false);
   assert.equal(canPublishBetImport("processed"), true);
   assert.equal(canPublishBetImport("confirmed"), false);
+});
+
+test("unresolved imported events are kept as private drafts", () => {
+  assert.equal(resolveImportVisibility("publico", []), "publico");
+  assert.equal(resolveImportVisibility("seguidores", []), "seguidores");
+  assert.equal(resolveImportVisibility("publico", ["Suiza - Bosnia y Herzegovina"]), "borrador");
 });
 
 test("migration does not create a public storage bucket", () => {
