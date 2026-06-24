@@ -246,6 +246,7 @@ export default async function PublicUserPage({ params, searchParams }: Props) {
                 className={`tab ${activeTab === profileTab ? "is-active" : ""}`}
                 href={tabHref(profileTab)}
                 key={profileTab}
+                scroll={false}
               >
                 {profileTab.charAt(0).toUpperCase() + profileTab.slice(1)}
               </Link>
@@ -304,16 +305,16 @@ export default async function PublicUserPage({ params, searchParams }: Props) {
               ) : <p className="muted">Todavia no hay actividad publica.</p>}
             </section>
           ) : (
-            <section className="profile__list">
+            <section className="profile__list public-profile__picks">
               <div className="public-profile__section-head">
                 <div>
                   <h2>{activeTab === "picks" ? "Picks publicos" : "Ultimos picks"}</h2>
                   <p>Pronosticos informativos compartidos por @{profile.username}.</p>
                 </div>
-                {activeTab === "resumen" && picks.length > 5 && <Link className="btn btn--ghost" href={tabHref("picks")}>Ver todos</Link>}
+                {activeTab === "resumen" && picks.length > 5 && <Link className="btn btn--ghost public-profile__view-all" href={tabHref("picks")} scroll={false}>Ver todos</Link>}
               </div>
               {visiblePicks.length > 0 ? visiblePicks.map((pick) => (
-                <Link className="card profile__row profile__row--compact" href={`/detalle?id=${pick.id}`} key={pick.id}>
+                <Link className="card profile__row profile__row--compact public-profile__pick-row" href={`/detalle?id=${pick.id}`} key={pick.id}>
                   <div className="profile__row-body">
                     <h3 className="profile__row-title-clean">{pick.evento}</h3>
                     <h3>{pick.evento} - {pick.mercado}</h3>
@@ -322,7 +323,10 @@ export default async function PublicUserPage({ params, searchParams }: Props) {
                     </span>
                   </div>
                   <div className="profile__row-stats">
-                    <span className="mono profile__cuota">{Number(pick.cuota).toFixed(2)}</span>
+                    <span className="profile__cuota public-profile__pick-odds">
+                      <span>Cuota</span>
+                      <strong className="mono">{Number(pick.cuota).toFixed(2)}</strong>
+                    </span>
                     <span className={`pill ${pick.estado === "acertada" ? "pill--ok" : pick.estado === "fallada" ? "pill--bad" : "pill--warn"}`}>
                       {pick.estado}
                     </span>

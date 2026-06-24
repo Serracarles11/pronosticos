@@ -201,16 +201,16 @@ export default async function PerfilPage({
 
         <section className="container profile__body">
           <div className="profile__tabs">
-            <Link href={tabLink("todas")} className={`tab ${activeTab === "todas" ? "is-active" : ""}`}>
+            <Link href={tabLink("todas")} className={`tab ${activeTab === "todas" ? "is-active" : ""}`} scroll={false}>
               Todas <span className="tab__count">{total}</span>
             </Link>
-            <Link href={tabLink("acertadas")} className={`tab ${activeTab === "acertadas" ? "is-active" : ""}`}>
+            <Link href={tabLink("acertadas")} className={`tab ${activeTab === "acertadas" ? "is-active" : ""}`} scroll={false}>
               Acertadas <span className="tab__count">{acertadas}</span>
             </Link>
-            <Link href={tabLink("falladas")} className={`tab ${activeTab === "falladas" ? "is-active" : ""}`}>
+            <Link href={tabLink("falladas")} className={`tab ${activeTab === "falladas" ? "is-active" : ""}`} scroll={false}>
               Falladas <span className="tab__count">{falladas}</span>
             </Link>
-            <Link href={tabLink("pendientes")} className={`tab ${activeTab === "pendientes" ? "is-active" : ""}`}>
+            <Link href={tabLink("pendientes")} className={`tab ${activeTab === "pendientes" ? "is-active" : ""}`} scroll={false}>
               Pendientes <span className="tab__count">{pendientes}</span>
             </Link>
           </div>

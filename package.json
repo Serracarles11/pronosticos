@@ -27,6 +27,7 @@
     "@next/env": "16.2.6",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.0",
+    "ldrs": "^1.1.9",
     "motion": "^12.40.0",
     "next": "16.2.6",
     "openai": "^6.42.0",
