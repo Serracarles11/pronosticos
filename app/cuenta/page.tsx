@@ -7,14 +7,7 @@ import { acceptFollowRequest, rejectFollowRequest } from "@/app/actions/pronosti
 import { updateSocialLinks } from "@/app/actions/social";
 import { parseProfileSocialLinks, SOCIAL_PLATFORMS, type SocialLink } from "@/lib/social-links";
 import { SocialIcon, socialIconSrc } from "../components/social-icon";
-
-const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
-
-function avatarColor(username: string) {
-  let h = 0;
-  for (let i = 0; i < username.length; i++) h = username.charCodeAt(i) + ((h << 5) - h);
-  return COLORS[Math.abs(h) % COLORS.length];
-}
+import { UserAvatar } from "../components/user-avatar";
 
 function formatDate(value?: string | null) {
   if (!value) return "No disponible";
@@ -78,8 +71,6 @@ export default async function CuentaPage({
 
   const username = profile.username;
   const displayName = profile.display_name ?? username;
-  const color = avatarColor(username);
-  const initials = username.slice(0, 2).toUpperCase();
   const message = statusMessage(ok, error);
   const socialLinks = socialLinksRes.error
     ? parseProfileSocialLinks(profile.social_links)
@@ -114,7 +105,7 @@ export default async function CuentaPage({
       <main className="account">
         <section className="account__hero">
           <div className="container account__hero-inner">
-            <span className={`avatar avatar--xl avatar--${color}`}>{initials}</span>
+            <UserAvatar avatarUrl={profile.avatar_url} size="xl" username={username} />
             <div className="account__identity">
               <h1>Cuenta</h1>
               <p>
@@ -181,6 +172,35 @@ export default async function CuentaPage({
               </div>
 
               <form action={updateAccount} className="account-form">
+                <div className="profile-photo-field">
+                  <UserAvatar avatarUrl={profile.avatar_url} size="lg" username={username} />
+                  <div className="profile-photo-field__body">
+                    <div className="field">
+                      <label className="field__label" htmlFor="avatar">
+                        Foto de perfil
+                      </label>
+                      <input
+                        accept="image/jpeg,image/png,image/webp"
+                        className="input"
+                        id="avatar"
+                        name="avatar"
+                        type="file"
+                      />
+                      <div className="field__hint">
+                        JPG, PNG o WebP. Maximo 3 MB.
+                      </div>
+                    </div>
+                    {profile.avatar_url && (
+                      <label className="check-field check-field--compact" htmlFor="remove_avatar">
+                        <input id="remove_avatar" name="remove_avatar" type="checkbox" />
+                        <span>
+                          <strong>Quitar foto actual</strong>
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                </div>
+
                 <div className="field">
                   <label className="field__label" htmlFor="display_name">
                     Nombre publico

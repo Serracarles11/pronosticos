@@ -7,7 +7,10 @@ import {
   fetchPronosticoBookmakers,
   type PronosticoBookmakerSupabase,
 } from "@/lib/pronostico-bookmakers";
-import { parsePronosticoSelections } from "@/lib/pronostico-selections";
+import {
+  formatPronosticoSelectionPick,
+  parsePronosticoSelections,
+} from "@/lib/pronostico-selections";
 import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
@@ -190,7 +193,7 @@ export default async function HomePage() {
                   const bookmakerAccent = getBookmakerAccentFromSources(p.bookmaker, p.copy_link);
                   const selections = parsePronosticoSelections(String(p.mercado ?? ""));
                   const isCombined = selections.length > 1;
-                  const visibleSelections = selections.slice(0, 4);
+                  const visibleSelections = selections.slice(0, 2);
                   const hiddenSelectionCount = Math.max(0, selections.length - visibleSelections.length);
                   return (
                     <article
@@ -251,7 +254,7 @@ export default async function HomePage() {
                               <span className="combo-selection__num">{selectionIndex + 1}</span>
                               <div>
                                 {selection.eventName && <strong>{selection.eventName}</strong>}
-                                <span>{selection.pick}</span>
+                                <span>{formatPronosticoSelectionPick(selection.pick)}</span>
                               </div>
                             </div>
                           ))}
@@ -267,7 +270,9 @@ export default async function HomePage() {
                         {!isCombined && (
                           <div className="pred__cell">
                             <div className="pred__cell-label">Pronostico</div>
-                            <div className="pred__cell-value">{p.mercado}</div>
+                            <div className="pred__cell-value">
+                              {formatPronosticoSelectionPick(String(p.mercado ?? ""))}
+                            </div>
                           </div>
                         )}
                         <div className="pred__cell pred__cell--accent">

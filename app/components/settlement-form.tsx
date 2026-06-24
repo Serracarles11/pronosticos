@@ -87,18 +87,18 @@ export function SettlementForm({ pronosticoId }: SettlementFormProps) {
 
     const input = form.elements.namedItem("captura") as HTMLInputElement | null;
     const file = input?.files?.[0];
-    if (!file) {
-      setError("Sube una captura antes de cerrar el pronostico.");
-      return;
-    }
 
     setError(null);
 
     try {
-      const optimizedFile = await compressImage(file);
       const formData = new FormData(form);
       formData.set("estado", estado);
-      formData.set("captura", optimizedFile);
+      if (file) {
+        const optimizedFile = await compressImage(file);
+        formData.set("captura", optimizedFile);
+      } else {
+        formData.delete("captura");
+      }
 
       startTransition(() => {
         void settlePronostico(formData);
@@ -114,14 +114,13 @@ export function SettlementForm({ pronosticoId }: SettlementFormProps) {
       <div>
         <h3>Cerrar pronostico</h3>
         <p>
-          Ya ha pasado la hora del partido. Sube una captura de la apuesta y
-          marca el resultado.
+          Marca si la apuesta fue acertada o fallada. La captura es opcional.
         </p>
       </div>
       {error && <div className="auth-error">{error}</div>}
       <div className="field">
         <label className="field__label" htmlFor="captura">
-          Captura de la apuesta
+          Captura de la apuesta (opcional)
         </label>
         <input
           id="captura"
@@ -129,10 +128,9 @@ export function SettlementForm({ pronosticoId }: SettlementFormProps) {
           type="file"
           className="input"
           accept="image/*"
-          required
         />
         <div className="field__hint">
-          La imagen se optimiza automaticamente antes de subirla.
+          Si la adjuntas, se optimiza automaticamente antes de subirla.
         </div>
       </div>
       <div className="settlement-form__actions">
@@ -142,7 +140,7 @@ export function SettlementForm({ pronosticoId }: SettlementFormProps) {
           disabled={isPending}
           onClick={() => void handleSubmit("acertada")}
         >
-          {isPending ? "Subiendo..." : "Acertada"}
+          {isPending ? "Guardando..." : "Acertada"}
         </button>
         <button
           className="btn btn--ghost"

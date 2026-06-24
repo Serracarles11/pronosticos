@@ -1,6 +1,5 @@
-import { createClient } from "../supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FootballMatchPickerItem } from "./types";
+import type { FootballMatchPickerItem } from "./types.ts";
 import { footballTeamSearchTerms, localizeFootballMatch } from "./localize.ts";
 import { futureIsoFloor } from "../upcoming-content.ts";
 
@@ -20,6 +19,8 @@ export async function getMatchesForPicker({
   dateFrom,
   dateTo,
   competitionCode,
+  includeFinished = false,
+  allowPastDates = false,
   limit = 20,
   supabase,
 }: {
@@ -28,10 +29,12 @@ export async function getMatchesForPicker({
   dateFrom?: string | null;
   dateTo?: string | null;
   competitionCode?: string | null;
+  includeFinished?: boolean;
+  allowPastDates?: boolean;
   limit?: number;
   supabase?: SupabaseLike;
 }): Promise<FootballMatchPickerItem[]> {
-  const db = supabase ?? (await createClient());
+  const db = supabase ?? (await (await import("../supabase/server.ts")).createClient());
   let request = db
     .from("football_matches")
     .select(`
@@ -44,10 +47,13 @@ export async function getMatchesForPicker({
     .limit(Math.min(Math.max(limit, 1), 50));
 
   if (isUuid(id)) request = request.eq("id", id);
-  request = request.gte("kickoff_at", futureIsoFloor(dateFrom));
+  request = request.gte(
+    "kickoff_at",
+    allowPastDates && dateFrom ? new Date(dateFrom).toISOString() : futureIsoFloor(dateFrom)
+  );
   if (dateTo) request = request.lte("kickoff_at", new Date(dateTo).toISOString());
   if (competitionCode) request = request.eq("competition_code", competitionCode.toUpperCase());
-  request = request.not("status", "in", "(finished,cancelled)");
+  if (!includeFinished) request = request.not("status", "in", "(finished,cancelled)");
 
   const term = cleanSearch(query);
   if (term) {

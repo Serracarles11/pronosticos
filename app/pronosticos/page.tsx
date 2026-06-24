@@ -9,6 +9,7 @@ import {
   fetchPronosticoBookmakers,
   type PronosticoBookmakerSupabase,
 } from "@/lib/pronostico-bookmakers";
+import { formatPronosticoSelectionPick } from "@/lib/pronostico-selections";
 import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 
 export const metadata: Metadata = {
@@ -282,7 +283,9 @@ export default async function PronosticosPage() {
                       <div className="pred__strip">
                         <div className="pred__cell">
                           <div className="pred__cell-label">Pronóstico</div>
-                          <div className="pred__cell-value">{pronostico.mercado}</div>
+                          <div className="pred__cell-value">
+                            {formatPronosticoSelectionPick(pronostico.mercado)}
+                          </div>
                         </div>
 
                         <div className="pred__cell pred__cell--accent">

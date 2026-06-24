@@ -8,6 +8,7 @@ import { ReportUserButton } from "@/app/components/report-user-button";
 import { ShareButton } from "@/app/components/share-button";
 import { SocialLinks } from "@/app/components/social-links";
 import { UserAvatar } from "@/app/components/user-avatar";
+import { formatPronosticoSelectionPick } from "@/lib/pronostico-selections";
 import { parseProfileSocialLinks, type SocialLink } from "@/lib/social-links";
 import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 
@@ -298,7 +299,7 @@ export default async function PublicUserPage({ params, searchParams }: Props) {
                   {picks.slice(0, 12).map((pick) => (
                     <Link href={`/detalle?id=${pick.id}`} key={pick.id}>
                       <strong>Publico un pick: {pick.evento}</strong>
-                      <span>{timeAgo(pick.created_at)} - {pick.mercado}</span>
+                      <span>{timeAgo(pick.created_at)} - {formatPronosticoSelectionPick(pick.mercado)}</span>
                     </Link>
                   ))}
                 </div>
@@ -317,7 +318,7 @@ export default async function PublicUserPage({ params, searchParams }: Props) {
                 <Link className="card profile__row profile__row--compact public-profile__pick-row" href={`/detalle?id=${pick.id}`} key={pick.id}>
                   <div className="profile__row-body">
                     <h3 className="profile__row-title-clean">{pick.evento}</h3>
-                    <h3>{pick.evento} - {pick.mercado}</h3>
+                    <h3>{pick.evento} - {formatPronosticoSelectionPick(pick.mercado)}</h3>
                     <span className="profile__row-meta">
                       {pick.competicion ?? "Competicion no indicada"} - {timeAgo(pick.created_at)}
                     </span>

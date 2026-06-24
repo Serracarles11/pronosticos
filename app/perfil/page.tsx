@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { FollowButton } from "../components/follow-button";
 import { upcomingPronosticoFilter } from "@/lib/upcoming-content";
 import { canSettlePronostico } from "@/lib/pronostico-settlement";
+import { formatPronosticoSelectionPick } from "@/lib/pronostico-selections";
 
 const COLORS = ["blue", "navy", "sky", "steel", "slate", "teal", "indigo", "purple"] as const;
 function avatarColor(username: string) {
@@ -247,7 +248,7 @@ export default async function PerfilPage({
                     <div className="profile__row-body">
                       <h3 className="profile__row-title-clean">{p.evento}</h3>
                       <h3>
-                        {p.evento} · {p.mercado}
+                        {p.evento} · {formatPronosticoSelectionPick(p.mercado)}
                       </h3>
                       <span className="profile__row-meta">
                         {p.competicion ?? ""}

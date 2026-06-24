@@ -48,9 +48,29 @@ test("normalizes football-data matches", () => {
   assert.equal(match.away_score, 1);
 });
 
+test("normalizes future knockout matches with unknown teams", () => {
+  const match = normalizeFootballDataMatch({
+    ...rawMatch,
+    id: 456,
+    status: "TIMED",
+    stage: "LAST_16",
+    homeTeam: null,
+    awayTeam: null,
+    score: { winner: null, fullTime: { home: null, away: null } },
+  });
+
+  assert.equal(match.external_id, "456");
+  assert.equal(match.home_team_name, "Por definir");
+  assert.equal(match.away_team_name, "Por definir");
+  assert.equal(match.status, "scheduled");
+});
+
 test("localizes football-data team names for Spanish UI", () => {
   assert.equal(localizeFootballTeamName("Spain"), "Espana");
+  assert.equal(localizeFootballTeamName("Algeria"), "Argelia");
   assert.equal(localizeFootballTeamName("Cape Verde Islands"), "Cabo Verde");
+  assert.equal(localizeFootballTeamName("Ivory Coast"), "Costa de Marfil");
+  assert.equal(localizeFootballTeamName("Jordan"), "Jordania");
   assert.equal(localizeFootballTeamName("Korea Republic"), "Corea del Sur");
   assert.equal(footballTeamSearchTerms("Espana").includes("spain"), true);
 });

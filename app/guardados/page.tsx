@@ -8,6 +8,7 @@ import {
   fetchPronosticoBookmakers,
   type PronosticoBookmakerSupabase,
 } from "@/lib/pronostico-bookmakers";
+import { formatPronosticoSelectionPick } from "@/lib/pronostico-selections";
 import { isUpcomingOrUndated } from "@/lib/upcoming-content";
 
 function timeAgo(dateStr: string) {
@@ -126,7 +127,9 @@ export default async function GuardadosPage() {
                   <div className="pred__strip">
                     <div className="pred__cell">
                       <div className="pred__cell-label">Pronostico</div>
-                      <div className="pred__cell-value">{item.mercado as string}</div>
+                      <div className="pred__cell-value">
+                        {formatPronosticoSelectionPick(item.mercado as string)}
+                      </div>
                     </div>
                     <div className="pred__cell pred__cell--accent">
                       <div className="pred__cell-label">Cuota</div>

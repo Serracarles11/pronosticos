@@ -1,11 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Manrope } from "next/font/google";
+import { Encode_Sans, JetBrains_Mono, Manrope } from "next/font/google";
 import { AgeGate } from "./components/age-gate";
 import { getPublicSiteOrigin } from "@/lib/site-url";
 import "./globals.css";
 
 const manrope = Manrope({
   variable: "--font-sans",
+  subsets: ["latin"],
+});
+
+const encodeSans = Encode_Sans({
+  variable: "--font-match",
   subsets: ["latin"],
 });
 
@@ -95,7 +100,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${manrope.variable} ${jetbrainsMono.variable}`}>
+    <html lang="es" className={`${manrope.variable} ${encodeSans.variable} ${jetbrainsMono.variable}`}>
       <body>
         <AgeGate />
         {children}

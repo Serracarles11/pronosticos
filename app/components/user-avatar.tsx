@@ -15,9 +15,11 @@ type Props = {
   avatarUrl?: string | null;
   size?: "sm" | "md" | "lg" | "xl";
   href?: string;
+  linkClassName?: string;
+  title?: string;
 };
 
-export function UserAvatar({ username, avatarUrl, size = "md", href }: Props) {
+export function UserAvatar({ username, avatarUrl, size = "md", href, linkClassName, title }: Props) {
   const safeAvatarUrl = avatarUrl?.startsWith("https://") ? avatarUrl : null;
   const content = safeAvatarUrl ? (
     // Avatar URLs are stored as profile data and rendered as a background to keep sizing consistent.
@@ -34,7 +36,7 @@ export function UserAvatar({ username, avatarUrl, size = "md", href }: Props) {
   );
 
   return href ? (
-    <Link aria-label={`Ver perfil de ${username}`} href={href}>
+    <Link aria-label={`Ver perfil de ${username}`} className={linkClassName} href={href} title={title}>
       {content}
     </Link>
   ) : (

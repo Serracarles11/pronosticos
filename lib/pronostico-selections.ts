@@ -25,6 +25,10 @@ export function parsePronosticoSelections(value: string): PronosticoSelection[] 
     });
 }
 
+export function formatPronosticoSelectionPick(value: string) {
+  return value.replace(/^Jugador\s*[-–]\s*[^:]+:\s*/i, "").trim();
+}
+
 export function isCombinedPronostico(market: string, eventName?: string | null) {
   if ((eventName ?? "").toLowerCase().includes("combinada")) return true;
   return parsePronosticoSelections(market).length > 1;
